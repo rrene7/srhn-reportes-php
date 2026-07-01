@@ -267,16 +267,33 @@ final class ReportePersonalModel
 
     private function aplicarFiltrosNormalizados(string &$sql, array &$params, array $filtros): void
     {
-        if (!empty($filtros['rango_desde']) && !empty($filtros['rango_hasta'])) {
-            $sql .= " AND r.legacy_code BETWEEN :rango_desde AND :rango_hasta";
-            $params[':rango_desde'] = (string) $filtros['rango_desde'];
-            $params[':rango_hasta'] = (string) $filtros['rango_hasta'];
+        $rangoDesde = trim((string) ($filtros['rango_desde'] ?? ''));
+        $rangoHasta = trim((string) ($filtros['rango_hasta'] ?? ''));
+        $cuartelDesde = trim((string) ($filtros['cuartel_desde'] ?? ''));
+        $cuartelHasta = trim((string) ($filtros['cuartel_hasta'] ?? ''));
+
+        if ($rangoDesde !== '' && $rangoHasta !== '') {
+            $sql .= " AND CAST(r.legacy_code AS UNSIGNED) BETWEEN :rango_desde AND :rango_hasta";
+            $params[':rango_desde'] = ['value' => (int) $rangoDesde, 'type' => PDO::PARAM_INT];
+            $params[':rango_hasta'] = ['value' => (int) $rangoHasta, 'type' => PDO::PARAM_INT];
+        } elseif ($rangoDesde !== '') {
+            $sql .= " AND CAST(r.legacy_code AS UNSIGNED) >= :rango_desde";
+            $params[':rango_desde'] = ['value' => (int) $rangoDesde, 'type' => PDO::PARAM_INT];
+        } elseif ($rangoHasta !== '') {
+            $sql .= " AND CAST(r.legacy_code AS UNSIGNED) <= :rango_hasta";
+            $params[':rango_hasta'] = ['value' => (int) $rangoHasta, 'type' => PDO::PARAM_INT];
         }
 
-        if (!empty($filtros['cuartel_desde']) && !empty($filtros['cuartel_hasta'])) {
+        if ($cuartelDesde !== '' && $cuartelHasta !== '') {
             $sql .= " AND u.legacy_code BETWEEN :cuartel_desde AND :cuartel_hasta";
-            $params[':cuartel_desde'] = (string) $filtros['cuartel_desde'];
-            $params[':cuartel_hasta'] = (string) $filtros['cuartel_hasta'];
+            $params[':cuartel_desde'] = $cuartelDesde;
+            $params[':cuartel_hasta'] = $cuartelHasta;
+        } elseif ($cuartelDesde !== '') {
+            $sql .= " AND u.legacy_code >= :cuartel_desde";
+            $params[':cuartel_desde'] = $cuartelDesde;
+        } elseif ($cuartelHasta !== '') {
+            $sql .= " AND u.legacy_code <= :cuartel_hasta";
+            $params[':cuartel_hasta'] = $cuartelHasta;
         }
 
         if (!empty($filtros['estado'])) {
@@ -336,16 +353,33 @@ final class ReportePersonalModel
 
         $params = [];
 
-        if (!empty($filtros['rango_desde']) && !empty($filtros['rango_hasta'])) {
-            $sql .= " AND d.rango BETWEEN :rango_desde AND :rango_hasta";
-            $params[':rango_desde'] = $filtros['rango_desde'];
-            $params[':rango_hasta'] = $filtros['rango_hasta'];
+        $rangoDesde = trim((string) ($filtros['rango_desde'] ?? ''));
+        $rangoHasta = trim((string) ($filtros['rango_hasta'] ?? ''));
+        $cuartelDesde = trim((string) ($filtros['cuartel_desde'] ?? ''));
+        $cuartelHasta = trim((string) ($filtros['cuartel_hasta'] ?? ''));
+
+        if ($rangoDesde !== '' && $rangoHasta !== '') {
+            $sql .= " AND CAST(d.rango AS UNSIGNED) BETWEEN :rango_desde AND :rango_hasta";
+            $params[':rango_desde'] = (int) $rangoDesde;
+            $params[':rango_hasta'] = (int) $rangoHasta;
+        } elseif ($rangoDesde !== '') {
+            $sql .= " AND CAST(d.rango AS UNSIGNED) >= :rango_desde";
+            $params[':rango_desde'] = (int) $rangoDesde;
+        } elseif ($rangoHasta !== '') {
+            $sql .= " AND CAST(d.rango AS UNSIGNED) <= :rango_hasta";
+            $params[':rango_hasta'] = (int) $rangoHasta;
         }
 
-        if (!empty($filtros['cuartel_desde']) && !empty($filtros['cuartel_hasta'])) {
+        if ($cuartelDesde !== '' && $cuartelHasta !== '') {
             $sql .= " AND d.cuartel BETWEEN :cuartel_desde AND :cuartel_hasta";
-            $params[':cuartel_desde'] = $filtros['cuartel_desde'];
-            $params[':cuartel_hasta'] = $filtros['cuartel_hasta'];
+            $params[':cuartel_desde'] = $cuartelDesde;
+            $params[':cuartel_hasta'] = $cuartelHasta;
+        } elseif ($cuartelDesde !== '') {
+            $sql .= " AND d.cuartel >= :cuartel_desde";
+            $params[':cuartel_desde'] = $cuartelDesde;
+        } elseif ($cuartelHasta !== '') {
+            $sql .= " AND d.cuartel <= :cuartel_hasta";
+            $params[':cuartel_hasta'] = $cuartelHasta;
         }
 
         if (!empty($filtros['estado'])) {
