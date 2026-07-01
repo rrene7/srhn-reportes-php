@@ -4,19 +4,65 @@
 /** @var array $estados */
 /** @var array $filtros */
 /** @var ?string $error */
+/** @var string $modulo */
+/** @var array $modulos */
+/** @var array $moduloActual */
 ?>
+
+<section class="card no-print">
+    <div class="card-header">
+        <div>
+            <h2>Reportes disponibles</h2>
+            <p>Reconstrucción progresiva de los reportes identificados en el módulo DLL/legado.</p>
+        </div>
+    </div>
+
+    <div class="report-menu">
+        <?php foreach ($modulos as $clave => $item): ?>
+            <a class="report-card <?= $modulo === $clave ? 'active' : '' ?>" href="<?= e(url($item['ruta'])) ?>">
+                <span class="module-status"><?= e($item['estado']) ?></span>
+                <strong><?= e($item['titulo']) ?></strong>
+                <small><?= e($item['descripcion']) ?></small>
+            </a>
+        <?php endforeach; ?>
+    </div>
+</section>
 
 <section class="card">
     <div class="card-header">
         <div>
-            <h2>Reportes generales de personal</h2>
-            <p>Filtros reconstruidos desde el módulo original de reportes.</p>
+            <h2><?= e($moduloActual['titulo']) ?></h2>
+            <p><?= e($moduloActual['descripcion']) ?></p>
         </div>
     </div>
 
     <?php if (!empty($error)): ?>
         <div class="alert alert-error">
             <?= e($error) ?>
+        </div>
+    <?php endif; ?>
+
+    <?php if ($modulo === 'acciones'): ?>
+        <div class="alert alert-info">
+            Este reporte queda como módulo pendiente. El siguiente paso será mapear las tablas de acciones del DLL contra la base actual para listar ascensos, traslados, vacaciones, licencias, sanciones y novedades.
+        </div>
+    <?php endif; ?>
+
+    <?php if ($modulo === 'consulta'): ?>
+        <div class="alert alert-info">
+            Para consulta individual, usa el campo Buscar con cédula, posición, nombre o apellido.
+        </div>
+    <?php endif; ?>
+
+    <?php if ($modulo === 'rango'): ?>
+        <div class="alert alert-info">
+            Para el reporte por rango, selecciona Rango desde, Rango hasta o ambos. Si solo llenas uno, el sistema filtra desde o hasta ese rango.
+        </div>
+    <?php endif; ?>
+
+    <?php if ($modulo === 'dependencia'): ?>
+        <div class="alert alert-info">
+            Para el reporte por dependencia, selecciona Dependencia desde, Dependencia hasta o ambas. Si solo llenas una, el sistema filtra desde o hasta esa dependencia.
         </div>
     <?php endif; ?>
 
@@ -88,15 +134,14 @@
 
         <div class="actions">
             <button type="submit">Generar reporte</button>
-            <a href="<?= e(url('/reportes')) ?>" class="button-secondary">Limpiar</a>
+            <a href="<?= e(url($moduloActual['ruta'])) ?>" class="button-secondary">Limpiar</a>
         </div>
     </form>
 </section>
 
 <section class="card muted">
-    <h3>Nota técnica</h3>
+    <h3>Mapa de reconstrucción del DLL</h3>
     <p>
-        Si algún catálogo no carga, puede ser porque el nombre de columna real sea diferente.
-        En ese caso se ajusta el modelo <code>ReportePersonalModel.php</code> según la estructura real de la base.
+        Este menú deja organizada la migración por módulos: primero reportes generales, luego rangos y dependencias, y después acciones de personal y consulta individual.
     </p>
 </section>
