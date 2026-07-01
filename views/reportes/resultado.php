@@ -6,13 +6,17 @@
 /** @var array $filtros */
 /** @var int $pagina */
 /** @var int $porPagina */
+/** @var array $porPaginaOpciones */
 /** @var int $totalPaginas */
 /** @var int $offset */
 $queryString = http_build_query($filtros);
 $desde = $total > 0 ? $offset + 1 : 0;
 $hasta = min($offset + $porPagina, $total);
-$prevQuery = http_build_query(array_merge($filtros, ['page' => max(1, $pagina - 1)]));
-$nextQuery = http_build_query(array_merge($filtros, ['page' => min($totalPaginas, $pagina + 1)]));
+$baseQueryParams = array_merge($filtros, ['per_page' => $porPagina]);
+$firstQuery = http_build_query(array_merge($baseQueryParams, ['page' => 1]));
+$prevQuery = http_build_query(array_merge($baseQueryParams, ['page' => max(1, $pagina - 1)]));
+$nextQuery = http_build_query(array_merge($baseQueryParams, ['page' => min($totalPaginas, $pagina + 1)]));
+$lastQuery = http_build_query(array_merge($baseQueryParams, ['page' => $totalPaginas]));
 
 $rangoDesde = trim((string) ($filtros['rango_desde'] ?? ''));
 $rangoHasta = trim((string) ($filtros['rango_hasta'] ?? ''));
@@ -39,13 +43,32 @@ $formatearFiltro = static fn (string $valor): string => $valor !== '' ? $valor :
         </div>
     </div>
 
+    <form class="toolbar" method="get" action="<?= e(url('/reportes/resultado')) ?>">
+        <?php foreach ($filtros as $name => $value): ?>
+            <input type="hidden" name="<?= e((string) $name) ?>" value="<?= e((string) $value) ?>">
+        <?php endforeach; ?>
+        <input type="hidden" name="page" value="1">
+
+        <label for="per_page">Registros por página</label>
+        <select id="per_page" name="per_page">
+            <?php foreach ($porPaginaOpciones as $opcion): ?>
+                <option value="<?= e($opcion) ?>" <?= (int) $opcion === (int) $porPagina ? 'selected' : '' ?>>
+                    <?= e($opcion) ?>
+                </option>
+            <?php endforeach; ?>
+        </select>
+        <button type="submit">Aplicar</button>
+    </form>
+
     <div class="toolbar">
         <?php if ($pagina > 1): ?>
+            <a class="button-secondary" href="<?= e(url('/reportes/resultado?' . $firstQuery)) ?>">Primera página</a>
             <a class="button-secondary" href="<?= e(url('/reportes/resultado?' . $prevQuery)) ?>">← Página anterior</a>
         <?php endif; ?>
 
         <?php if ($pagina < $totalPaginas): ?>
             <a class="button-secondary" href="<?= e(url('/reportes/resultado?' . $nextQuery)) ?>">Página siguiente →</a>
+            <a class="button-secondary" href="<?= e(url('/reportes/resultado?' . $lastQuery)) ?>">Última página</a>
         <?php endif; ?>
     </div>
 </section>
@@ -188,11 +211,13 @@ $formatearFiltro = static fn (string $valor): string => $valor !== '' ? $valor :
 <section class="card no-print">
     <div class="toolbar">
         <?php if ($pagina > 1): ?>
+            <a class="button-secondary" href="<?= e(url('/reportes/resultado?' . $firstQuery)) ?>">Primera página</a>
             <a class="button-secondary" href="<?= e(url('/reportes/resultado?' . $prevQuery)) ?>">← Página anterior</a>
         <?php endif; ?>
 
         <?php if ($pagina < $totalPaginas): ?>
             <a class="button-secondary" href="<?= e(url('/reportes/resultado?' . $nextQuery)) ?>">Página siguiente →</a>
+            <a class="button-secondary" href="<?= e(url('/reportes/resultado?' . $lastQuery)) ?>">Última página</a>
         <?php endif; ?>
     </div>
 </section>
