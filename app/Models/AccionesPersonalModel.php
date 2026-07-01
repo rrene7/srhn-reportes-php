@@ -118,6 +118,10 @@ final class AccionesPersonalModel
 
     public function buscar(array $filtros, int $limit = 100): array
     {
+        if (!$this->tieneFiltros($filtros)) {
+            return [];
+        }
+
         if ($this->tablaDetectada() === 'employee_actions') {
             return $this->buscarEmployeeActions($filtros, $limit);
         }
@@ -200,30 +204,32 @@ final class AccionesPersonalModel
 
         $buscar = trim((string) ($filtros['buscar'] ?? ''));
         if ($buscar !== '') {
-            $sql .= " AND (
-                e.document_number LIKE :buscar_documento
-                OR e.first_name LIKE :buscar_nombre
-                OR e.last_name LIKE :buscar_apellido
-                OR e.external_agent_number LIKE :buscar_agente
-                OR CAST(e.legacy_position AS CHAR) LIKE :buscar_posicion
-                OR CAST(e.id AS CHAR) LIKE :buscar_employee_id
-                OR CAST(a.employee_id AS CHAR) LIKE :buscar_action_employee_id
-                OR a.resolution_number LIKE :buscar_resolucion
-                OR a.ogd_number LIKE :buscar_ogd
-                OR a.notes LIKE :buscar_notas
-            )";
+            if (ctype_digit($buscar)) {
+                $sql .= " AND (
+                    e.document_number = :buscar_texto
+                    OR e.document_number LIKE :buscar_prefijo
+                    OR e.external_agent_number = :buscar_texto
+                    OR e.legacy_position = :buscar_numero
+                    OR e.id = :buscar_numero
+                    OR a.employee_id = :buscar_numero
+                    OR a.resolution_number = :buscar_texto
+                    OR a.ogd_number = :buscar_texto
+                )";
 
-            $valor = '%' . $buscar . '%';
-            $params[':buscar_documento'] = $valor;
-            $params[':buscar_nombre'] = $valor;
-            $params[':buscar_apellido'] = $valor;
-            $params[':buscar_agente'] = $valor;
-            $params[':buscar_posicion'] = $valor;
-            $params[':buscar_employee_id'] = $valor;
-            $params[':buscar_action_employee_id'] = $valor;
-            $params[':buscar_resolucion'] = $valor;
-            $params[':buscar_ogd'] = $valor;
-            $params[':buscar_notas'] = $valor;
+                $params[':buscar_texto'] = $buscar;
+                $params[':buscar_prefijo'] = $buscar . '%';
+                $params[':buscar_numero'] = ['value' => (int) $buscar, 'type' => PDO::PARAM_INT];
+            } else {
+                $sql .= " AND (
+                    e.document_number LIKE :buscar_prefijo
+                    OR e.first_name LIKE :buscar_prefijo
+                    OR e.last_name LIKE :buscar_prefijo
+                    OR a.resolution_number LIKE :buscar_prefijo
+                    OR a.ogd_number LIKE :buscar_prefijo
+                )";
+
+                $params[':buscar_prefijo'] = $buscar . '%';
+            }
         }
 
         $tipo = trim((string) ($filtros['tipo'] ?? ''));
@@ -236,17 +242,17 @@ final class AccionesPersonalModel
         $fechaHasta = trim((string) ($filtros['fecha_hasta'] ?? ''));
 
         if ($fechaDesde !== '') {
-            $sql .= " AND DATE(a.action_date) >= :fecha_desde";
+            $sql .= " AND a.action_date >= :fecha_desde";
             $params[':fecha_desde'] = $fechaDesde;
         }
 
         if ($fechaHasta !== '') {
-            $sql .= " AND DATE(a.action_date) <= :fecha_hasta";
+            $sql .= " AND a.action_date <= :fecha_hasta";
             $params[':fecha_hasta'] = $fechaHasta;
         }
 
         $sql .= " ORDER BY a.action_date DESC, a.id DESC LIMIT :limit";
-        $params[':limit'] = ['value' => max(1, min($limit, 500)), 'type' => PDO::PARAM_INT];
+        $params[':limit'] = ['value' => max(1, min($limit, 100)), 'type' => PDO::PARAM_INT];
 
         $stmt = $this->db->prepare($sql);
         $this->bindParams($stmt, $params);
@@ -282,7 +288,7 @@ final class AccionesPersonalModel
 
                 $param = ':buscar_' . $i++;
                 $or[] = 'CAST(' . $this->id($nombre) . ' AS CHAR) LIKE ' . $param;
-                $params[$param] = '%' . $buscar . '%';
+                $params[$param] = $buscar . '%';
             }
 
             if ($or !== []) {
@@ -338,13 +344,21 @@ final class AccionesPersonalModel
         }
 
         $sql .= ' LIMIT :limit';
-        $params[':limit'] = ['value' => max(1, min($limit, 500)), 'type' => PDO::PARAM_INT];
+        $params[':limit'] = ['value' => max(1, min($limit, 100)), 'type' => PDO::PARAM_INT];
 
         $stmt = $this->db->prepare($sql);
         $this->bindParams($stmt, $params);
         $stmt->execute();
 
         return $stmt->fetchAll();
+    }
+
+    private function tieneFiltros(array $filtros): bool
+    {
+        return trim((string) ($filtros['buscar'] ?? '')) !== ''
+            || trim((string) ($filtros['tipo'] ?? '')) !== ''
+            || trim((string) ($filtros['fecha_desde'] ?? '')) !== ''
+            || trim((string) ($filtros['fecha_hasta'] ?? '')) !== '';
     }
 
     private function bindParams(\PDOStatement $stmt, array $params): void
