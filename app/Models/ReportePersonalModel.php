@@ -120,29 +120,29 @@ final class ReportePersonalModel
         $sql = "
             SELECT
                 COALESCE(r.legacy_code, '') AS rango,
-                r.name AS rango_nombre,
-                e.legacy_position AS nemp,
+                COALESCE(r.name, e.legacy_rank_name, '') AS rango_nombre,
+                COALESCE(CAST(e.legacy_position AS CHAR), e.external_agent_number, CAST(e.id AS CHAR)) AS nemp,
                 e.first_name AS nombre,
                 e.last_name AS apellido,
                 COALESCE(u.legacy_code, '') AS cuartel,
-                u.name AS cuartel_nombre,
+                COALESCE(u.name, e.legacy_unit_name, e.external_substation_name, '') AS cuartel_nombre,
                 e.document_number AS cedula,
                 e.sex AS sexo,
-                e.legacy_position AS posicipn,
+                COALESCE(CAST(e.legacy_position AS CHAR), e.external_agent_number, CAST(e.id AS CHAR)) AS posicipn,
                 e.external_profile_id AS posicimi,
                 e.hire_date AS fecing,
                 e.promotion_date AS fecascen,
                 e.status_date AS fectras,
                 e.vacation_date AS fecvac,
-                COALESCE(s.legacy_code, '') AS estado,
-                s.name AS estado_nombre,
+                COALESCE(s.legacy_code, e.legacy_status_code, '') AS estado,
+                COALESCE(s.name, e.external_user_status, e.external_agent_status, '') AS estado_nombre,
                 e.birth_date AS fecnac,
                 e.external_user_type AS tipopol
             FROM employees e
             LEFT JOIN ranks r ON r.id = e.rank_id
             LEFT JOIN units u ON u.id = e.unit_id
             LEFT JOIN statuses s ON s.id = e.status_id
-            WHERE e.legacy_position IS NOT NULL
+            WHERE 1 = 1
         ";
 
         $params = [];
@@ -169,7 +169,9 @@ final class ReportePersonalModel
                 e.document_number LIKE :buscar
                 OR e.first_name LIKE :buscar
                 OR e.last_name LIKE :buscar
+                OR e.external_agent_number LIKE :buscar
                 OR CAST(e.legacy_position AS CHAR) LIKE :buscar
+                OR CAST(e.id AS CHAR) LIKE :buscar
             )";
             $params[':buscar'] = '%' . $filtros['buscar'] . '%';
         }
