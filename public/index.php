@@ -60,6 +60,7 @@ try {
         '/reportes/por-rango' => $controller->porRango(),
         '/reportes/por-dependencia' => $controller->porDependencia(),
         '/reportes/acciones' => $controller->acciones(),
+        '/reportes/acciones/resultado' => $controller->accionesResultado(),
         '/reportes/consulta-funcionario' => $controller->consultaFuncionario(),
         '/reportes/consulta-funcionario/resultado' => $controller->consultaResultado(),
         '/reportes/funcionario' => $controller->fichaFuncionario(),
