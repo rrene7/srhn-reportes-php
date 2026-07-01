@@ -302,15 +302,23 @@ final class ReportePersonalModel
         }
 
         if (!empty($filtros['buscar'])) {
+            $buscar = '%' . (string) $filtros['buscar'] . '%';
+
             $sql .= " AND (
-                e.document_number LIKE :buscar
-                OR e.first_name LIKE :buscar
-                OR e.last_name LIKE :buscar
-                OR e.external_agent_number LIKE :buscar
-                OR CAST(e.legacy_position AS CHAR) LIKE :buscar
-                OR CAST(e.id AS CHAR) LIKE :buscar
+                e.document_number LIKE :buscar_documento
+                OR e.first_name LIKE :buscar_nombre
+                OR e.last_name LIKE :buscar_apellido
+                OR e.external_agent_number LIKE :buscar_agente
+                OR CAST(e.legacy_position AS CHAR) LIKE :buscar_posicion
+                OR CAST(e.id AS CHAR) LIKE :buscar_id
             )";
-            $params[':buscar'] = '%' . (string) $filtros['buscar'] . '%';
+
+            $params[':buscar_documento'] = $buscar;
+            $params[':buscar_nombre'] = $buscar;
+            $params[':buscar_apellido'] = $buscar;
+            $params[':buscar_agente'] = $buscar;
+            $params[':buscar_posicion'] = $buscar;
+            $params[':buscar_id'] = $buscar;
         }
     }
 
@@ -388,13 +396,19 @@ final class ReportePersonalModel
         }
 
         if (!empty($filtros['buscar'])) {
+            $buscar = '%' . (string) $filtros['buscar'] . '%';
+
             $sql .= " AND (
-                d.cedula LIKE :buscar
-                OR d.nombre LIKE :buscar
-                OR d.apellido LIKE :buscar
-                OR CAST(d.nemp AS CHAR) LIKE :buscar
+                d.cedula LIKE :buscar_cedula
+                OR d.nombre LIKE :buscar_nombre
+                OR d.apellido LIKE :buscar_apellido
+                OR CAST(d.nemp AS CHAR) LIKE :buscar_nemp
             )";
-            $params[':buscar'] = '%' . $filtros['buscar'] . '%';
+
+            $params[':buscar_cedula'] = $buscar;
+            $params[':buscar_nombre'] = $buscar;
+            $params[':buscar_apellido'] = $buscar;
+            $params[':buscar_nemp'] = $buscar;
         }
 
         $sql .= " ORDER BY d.rango ASC, d.cuartel ASC, d.apellido ASC, d.nombre ASC";
