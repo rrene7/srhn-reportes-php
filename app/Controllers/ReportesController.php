@@ -35,7 +35,7 @@ final class ReportesController
     {
         $filtros = $this->filtrosDesdeRequest();
         $pagina = $this->paginaDesdeRequest();
-        $porPagina = 100;
+        $porPagina = $this->porPaginaDesdeRequest();
 
         try {
             $total = $this->model->contarPersonal($filtros);
@@ -53,6 +53,7 @@ final class ReportesController
                 'totalesCuartel' => $this->model->totalesPorCampoConsulta($filtros, 'cuartel'),
                 'pagina' => $pagina,
                 'porPagina' => $porPagina,
+                'porPaginaOpciones' => [50, 100, 200, 500],
                 'totalPaginas' => $totalPaginas,
                 'offset' => $offset,
                 'error' => null,
@@ -140,5 +141,13 @@ final class ReportesController
         $pagina = (int) ($_GET['page'] ?? 1);
 
         return max(1, $pagina);
+    }
+
+    private function porPaginaDesdeRequest(): int
+    {
+        $opciones = [50, 100, 200, 500];
+        $porPagina = (int) ($_GET['per_page'] ?? 100);
+
+        return in_array($porPagina, $opciones, true) ? $porPagina : 100;
     }
 }
