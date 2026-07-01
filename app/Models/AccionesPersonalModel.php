@@ -66,6 +66,20 @@ final class AccionesPersonalModel
 
     public function tiposAccion(): array
     {
+        if ($this->tablaDetectada() === 'employee_actions' && $this->tablaExiste('action_types')) {
+            try {
+                $stmt = $this->db->query("SELECT id, name FROM action_types ORDER BY name ASC");
+                return array_map(static function (array $row): array {
+                    return [
+                        'codigo' => (string) ($row['id'] ?? ''),
+                        'nombre' => (string) ($row['name'] ?? $row['id'] ?? ''),
+                    ];
+                }, $stmt->fetchAll());
+            } catch (Throwable) {
+                return [];
+            }
+        }
+
         $tabla = $this->tablaDetectada();
         $columnas = $this->columnas();
 
@@ -82,6 +96,7 @@ final class AccionesPersonalModel
             'codaccion',
             'cod_accion',
             'action_code',
+            'action_type_id',
         ]);
 
         if ($tipoColumna === null) {
@@ -92,7 +107,10 @@ final class AccionesPersonalModel
             $sql = 'SELECT DISTINCT ' . $this->id($tipoColumna) . ' AS tipo FROM ' . $this->id($tabla) . ' WHERE ' . $this->id($tipoColumna) . ' IS NOT NULL ORDER BY ' . $this->id($tipoColumna) . ' ASC LIMIT 200';
             $stmt = $this->db->query($sql);
 
-            return array_values(array_filter(array_map(static fn (array $row): string => trim((string) ($row['tipo'] ?? '')), $stmt->fetchAll())));
+            return array_values(array_filter(array_map(static function (array $row): array {
+                $tipo = trim((string) ($row['tipo'] ?? ''));
+                return ['codigo' => $tipo, 'nombre' => $tipo];
+            }, $stmt->fetchAll()), static fn (array $row): bool => $row['codigo'] !== ''));
         } catch (Throwable) {
             return [];
         }
@@ -100,15 +118,151 @@ final class AccionesPersonalModel
 
     public function buscar(array $filtros, int $limit = 100): array
     {
+        if ($this->tablaDetectada() === 'employee_actions') {
+            return $this->buscarEmployeeActions($filtros, $limit);
+        }
+
+        return $this->buscarGenerico($filtros, $limit);
+    }
+
+    public function metadata(): array
+    {
+        $tabla = $this->tablaDetectada();
+        $columnas = $this->columnas();
+
+        return [
+            'tabla' => $tabla,
+            'columnas' => array_map(static fn (array $col): string => (string) ($col['Field'] ?? ''), $columnas),
+            'tipos' => $this->tiposAccion(),
+            'modo' => $tabla === 'employee_actions' ? 'employee_actions' : 'generico',
+        ];
+    }
+
+    private function buscarEmployeeActions(array $filtros, int $limit): array
+    {
+        $joinActionTypes = $this->tablaExiste('action_types');
+        $joinTargetRanks = $this->tablaExiste('ranks');
+        $joinTargetUnits = $this->tablaExiste('units');
+
+        $sql = "
+            SELECT
+                a.id AS accion_id,
+                a.employee_id,
+                COALESCE(CAST(e.legacy_position AS CHAR), e.external_agent_number, CAST(e.id AS CHAR)) AS nemp,
+                e.document_number AS cedula,
+                TRIM(CONCAT(COALESCE(e.first_name, ''), ' ', COALESCE(e.last_name, ''))) AS funcionario,
+                e.sex AS sexo,
+                COALESCE(r.legacy_code, '') AS rango_codigo,
+                COALESCE(r.name, e.legacy_rank_name, '') AS rango_nombre,
+                COALESCE(u.legacy_code, '') AS unidad_codigo,
+                COALESCE(u.name, e.legacy_unit_name, e.external_substation_name, '') AS unidad_nombre,
+                a.action_type_id,
+                " . ($joinActionTypes ? "COALESCE(at.name, CAST(a.action_type_id AS CHAR))" : "CAST(a.action_type_id AS CHAR)") . " AS tipo_accion,
+                a.action_date,
+                a.raw_action_date,
+                a.start_date,
+                a.end_date,
+                a.resolution_number,
+                a.resolution_date,
+                a.ogd_number,
+                a.cause_code,
+                a.target_position,
+                " . ($joinTargetRanks ? "COALESCE(tr.name, CAST(a.target_rank_id AS CHAR))" : "CAST(a.target_rank_id AS CHAR)") . " AS rango_destino,
+                " . ($joinTargetUnits ? "COALESCE(tu.name, a.legacy_unit_name, CAST(a.target_unit_id AS CHAR))" : "COALESCE(a.legacy_unit_name, CAST(a.target_unit_id AS CHAR))") . " AS unidad_destino,
+                a.duration_value,
+                a.duration_unit,
+                a.incapacity_number,
+                a.doctor_code,
+                a.medical_facility,
+                a.attachment_path,
+                a.notes,
+                a.migration_review_status
+            FROM employee_actions a
+            LEFT JOIN employees e ON e.id = a.employee_id
+            LEFT JOIN ranks r ON r.id = e.rank_id
+            LEFT JOIN units u ON u.id = e.unit_id
+        ";
+
+        if ($joinActionTypes) {
+            $sql .= " LEFT JOIN action_types at ON at.id = a.action_type_id";
+        }
+
+        if ($joinTargetRanks) {
+            $sql .= " LEFT JOIN ranks tr ON tr.id = a.target_rank_id";
+        }
+
+        if ($joinTargetUnits) {
+            $sql .= " LEFT JOIN units tu ON tu.id = a.target_unit_id";
+        }
+
+        $sql .= " WHERE a.deleted_at IS NULL";
+        $params = [];
+
+        $buscar = trim((string) ($filtros['buscar'] ?? ''));
+        if ($buscar !== '') {
+            $sql .= " AND (
+                e.document_number LIKE :buscar_documento
+                OR e.first_name LIKE :buscar_nombre
+                OR e.last_name LIKE :buscar_apellido
+                OR e.external_agent_number LIKE :buscar_agente
+                OR CAST(e.legacy_position AS CHAR) LIKE :buscar_posicion
+                OR CAST(e.id AS CHAR) LIKE :buscar_employee_id
+                OR CAST(a.employee_id AS CHAR) LIKE :buscar_action_employee_id
+                OR a.resolution_number LIKE :buscar_resolucion
+                OR a.ogd_number LIKE :buscar_ogd
+                OR a.notes LIKE :buscar_notas
+            )";
+
+            $valor = '%' . $buscar . '%';
+            $params[':buscar_documento'] = $valor;
+            $params[':buscar_nombre'] = $valor;
+            $params[':buscar_apellido'] = $valor;
+            $params[':buscar_agente'] = $valor;
+            $params[':buscar_posicion'] = $valor;
+            $params[':buscar_employee_id'] = $valor;
+            $params[':buscar_action_employee_id'] = $valor;
+            $params[':buscar_resolucion'] = $valor;
+            $params[':buscar_ogd'] = $valor;
+            $params[':buscar_notas'] = $valor;
+        }
+
+        $tipo = trim((string) ($filtros['tipo'] ?? ''));
+        if ($tipo !== '') {
+            $sql .= " AND a.action_type_id = :tipo";
+            $params[':tipo'] = ['value' => (int) $tipo, 'type' => PDO::PARAM_INT];
+        }
+
+        $fechaDesde = trim((string) ($filtros['fecha_desde'] ?? ''));
+        $fechaHasta = trim((string) ($filtros['fecha_hasta'] ?? ''));
+
+        if ($fechaDesde !== '') {
+            $sql .= " AND DATE(a.action_date) >= :fecha_desde";
+            $params[':fecha_desde'] = $fechaDesde;
+        }
+
+        if ($fechaHasta !== '') {
+            $sql .= " AND DATE(a.action_date) <= :fecha_hasta";
+            $params[':fecha_hasta'] = $fechaHasta;
+        }
+
+        $sql .= " ORDER BY a.action_date DESC, a.id DESC LIMIT :limit";
+        $params[':limit'] = ['value' => max(1, min($limit, 500)), 'type' => PDO::PARAM_INT];
+
+        $stmt = $this->db->prepare($sql);
+        $this->bindParams($stmt, $params);
+        $stmt->execute();
+
+        return $stmt->fetchAll();
+    }
+
+    private function buscarGenerico(array $filtros, int $limit): array
+    {
         $tabla = $this->tablaDetectada();
         $columnas = $this->columnas();
 
         if ($tabla === null || $columnas === []) {
             return [];
         }
-
-        $nombresColumnas = array_map(static fn (array $col): string => (string) ($col['Field'] ?? ''), $columnas);
-        $nombresColumnas = array_values(array_filter($nombresColumnas));
 
         $sql = 'SELECT * FROM ' . $this->id($tabla) . ' WHERE 1 = 1';
         $params = [];
@@ -146,6 +300,7 @@ final class AccionesPersonalModel
             'codaccion',
             'cod_accion',
             'action_code',
+            'action_type_id',
         ]);
 
         if ($tipo !== '' && $tipoColumna !== null) {
@@ -186,7 +341,14 @@ final class AccionesPersonalModel
         $params[':limit'] = ['value' => max(1, min($limit, 500)), 'type' => PDO::PARAM_INT];
 
         $stmt = $this->db->prepare($sql);
+        $this->bindParams($stmt, $params);
+        $stmt->execute();
 
+        return $stmt->fetchAll();
+    }
+
+    private function bindParams(\PDOStatement $stmt, array $params): void
+    {
         foreach ($params as $key => $value) {
             if (is_array($value)) {
                 $stmt->bindValue($key, $value['value'], $value['type']);
@@ -195,22 +357,18 @@ final class AccionesPersonalModel
 
             $stmt->bindValue($key, $value);
         }
-
-        $stmt->execute();
-
-        return $stmt->fetchAll();
     }
 
-    public function metadata(): array
+    private function tablaExiste(string $table): bool
     {
-        $tabla = $this->tablaDetectada();
-        $columnas = $this->columnas();
+        try {
+            $stmt = $this->db->prepare("SELECT 1 FROM INFORMATION_SCHEMA.TABLES WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = :table LIMIT 1");
+            $stmt->execute([':table' => $table]);
 
-        return [
-            'tabla' => $tabla,
-            'columnas' => array_map(static fn (array $col): string => (string) ($col['Field'] ?? ''), $columnas),
-            'tipos' => $this->tiposAccion(),
-        ];
+            return (bool) $stmt->fetchColumn();
+        } catch (Throwable) {
+            return false;
+        }
     }
 
     private function primeraColumnaExistente(array $columnas, array $candidatas): ?string
