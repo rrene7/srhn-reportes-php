@@ -89,6 +89,37 @@ final class ReportePersonalModel
         return $this->buscarPersonalLegacy($filtros);
     }
 
+    public function buscarPersonalPaginado(array $filtros, int $limit, int $offset): array
+    {
+        if ($this->usarModeloNormalizado()) {
+            return $this->buscarPersonalNormalizado($filtros, $limit, $offset);
+        }
+
+        return array_slice($this->buscarPersonalLegacy($filtros), $offset, $limit);
+    }
+
+    public function contarPersonal(array $filtros): int
+    {
+        if ($this->usarModeloNormalizado()) {
+            return $this->contarPersonalNormalizado($filtros);
+        }
+
+        return count($this->buscarPersonalLegacy($filtros));
+    }
+
+    public function totalesPorCampoConsulta(array $filtros, string $field): array
+    {
+        if (!$this->usarModeloNormalizado()) {
+            return $this->totalesPorCampo($this->buscarPersonalLegacy($filtros), $field);
+        }
+
+        return match ($field) {
+            'rango' => $this->totalesRangoNormalizado($filtros),
+            'cuartel' => $this->totalesCuartelNormalizado($filtros),
+            default => [],
+        };
+    }
+
     public function totalesPorCampo(array $rows, string $field): array
     {
         $totales = [];
@@ -115,7 +146,7 @@ final class ReportePersonalModel
         return $totales;
     }
 
-    private function buscarPersonalNormalizado(array $filtros): array
+    private function buscarPersonalNormalizado(array $filtros, ?int $limit = null, ?int $offset = null): array
     {
         $sql = "
             SELECT
@@ -146,22 +177,111 @@ final class ReportePersonalModel
         ";
 
         $params = [];
+        $this->aplicarFiltrosNormalizados($sql, $params, $filtros);
 
+        $sql .= " ORDER BY r.sort_order ASC, u.legacy_code ASC, e.last_name ASC, e.first_name ASC";
+
+        if ($limit !== null && $offset !== null) {
+            $sql .= " LIMIT :limit OFFSET :offset";
+            $params[':limit'] = ['value' => max(1, $limit), 'type' => PDO::PARAM_INT];
+            $params[':offset'] = ['value' => max(0, $offset), 'type' => PDO::PARAM_INT];
+        }
+
+        $stmt = $this->db->prepare($sql);
+        $this->bindParams($stmt, $params);
+        $stmt->execute();
+
+        return $stmt->fetchAll();
+    }
+
+    private function contarPersonalNormalizado(array $filtros): int
+    {
+        $sql = "
+            SELECT COUNT(*)
+            FROM employees e
+            LEFT JOIN ranks r ON r.id = e.rank_id
+            LEFT JOIN units u ON u.id = e.unit_id
+            LEFT JOIN statuses s ON s.id = e.status_id
+            WHERE 1 = 1
+        ";
+
+        $params = [];
+        $this->aplicarFiltrosNormalizados($sql, $params, $filtros);
+
+        $stmt = $this->db->prepare($sql);
+        $this->bindParams($stmt, $params);
+        $stmt->execute();
+
+        return (int) $stmt->fetchColumn();
+    }
+
+    private function totalesRangoNormalizado(array $filtros): array
+    {
+        $sql = "
+            SELECT
+                COALESCE(r.legacy_code, 'SIN DATO') AS codigo,
+                COALESCE(r.name, e.legacy_rank_name, r.legacy_code, 'SIN DATO') AS nombre,
+                COUNT(*) AS total
+            FROM employees e
+            LEFT JOIN ranks r ON r.id = e.rank_id
+            LEFT JOIN units u ON u.id = e.unit_id
+            LEFT JOIN statuses s ON s.id = e.status_id
+            WHERE 1 = 1
+        ";
+
+        $params = [];
+        $this->aplicarFiltrosNormalizados($sql, $params, $filtros);
+        $sql .= " GROUP BY codigo, nombre ORDER BY codigo ASC";
+
+        $stmt = $this->db->prepare($sql);
+        $this->bindParams($stmt, $params);
+        $stmt->execute();
+
+        return $stmt->fetchAll();
+    }
+
+    private function totalesCuartelNormalizado(array $filtros): array
+    {
+        $sql = "
+            SELECT
+                COALESCE(u.legacy_code, 'SIN DATO') AS codigo,
+                COALESCE(u.name, e.legacy_unit_name, e.external_substation_name, u.legacy_code, 'SIN DATO') AS nombre,
+                COUNT(*) AS total
+            FROM employees e
+            LEFT JOIN ranks r ON r.id = e.rank_id
+            LEFT JOIN units u ON u.id = e.unit_id
+            LEFT JOIN statuses s ON s.id = e.status_id
+            WHERE 1 = 1
+        ";
+
+        $params = [];
+        $this->aplicarFiltrosNormalizados($sql, $params, $filtros);
+        $sql .= " GROUP BY codigo, nombre ORDER BY codigo ASC";
+
+        $stmt = $this->db->prepare($sql);
+        $this->bindParams($stmt, $params);
+        $stmt->execute();
+
+        return $stmt->fetchAll();
+    }
+
+    private function aplicarFiltrosNormalizados(string &$sql, array &$params, array $filtros): void
+    {
         if (!empty($filtros['rango_desde']) && !empty($filtros['rango_hasta'])) {
             $sql .= " AND r.legacy_code BETWEEN :rango_desde AND :rango_hasta";
-            $params[':rango_desde'] = $filtros['rango_desde'];
-            $params[':rango_hasta'] = $filtros['rango_hasta'];
+            $params[':rango_desde'] = (string) $filtros['rango_desde'];
+            $params[':rango_hasta'] = (string) $filtros['rango_hasta'];
         }
 
         if (!empty($filtros['cuartel_desde']) && !empty($filtros['cuartel_hasta'])) {
             $sql .= " AND u.legacy_code BETWEEN :cuartel_desde AND :cuartel_hasta";
-            $params[':cuartel_desde'] = $filtros['cuartel_desde'];
-            $params[':cuartel_hasta'] = $filtros['cuartel_hasta'];
+            $params[':cuartel_desde'] = (string) $filtros['cuartel_desde'];
+            $params[':cuartel_hasta'] = (string) $filtros['cuartel_hasta'];
         }
 
         if (!empty($filtros['estado'])) {
             $sql .= " AND s.legacy_code = :estado";
-            $params[':estado'] = $filtros['estado'];
+            $params[':estado'] = (string) $filtros['estado'];
         }
 
         if (!empty($filtros['buscar'])) {
@@ -173,15 +293,20 @@ final class ReportePersonalModel
                 OR CAST(e.legacy_position AS CHAR) LIKE :buscar
                 OR CAST(e.id AS CHAR) LIKE :buscar
             )";
-            $params[':buscar'] = '%' . $filtros['buscar'] . '%';
+            $params[':buscar'] = '%' . (string) $filtros['buscar'] . '%';
         }
+    }
 
-        $sql .= " ORDER BY r.sort_order ASC, u.legacy_code ASC, e.last_name ASC, e.first_name ASC";
+    private function bindParams(\PDOStatement $stmt, array $params): void
+    {
+        foreach ($params as $key => $param) {
+            if (is_array($param)) {
+                $stmt->bindValue($key, $param['value'], $param['type']);
+                continue;
+            }
 
-        $stmt = $this->db->prepare($sql);
-        $stmt->execute($params);
-
-        return $stmt->fetchAll();
+            $stmt->bindValue($key, $param);
+        }
     }
 
     private function buscarPersonalLegacy(array $filtros): array
@@ -256,17 +381,6 @@ final class ReportePersonalModel
 
             return (int) ($row['total'] ?? 0) > 0;
         } catch (Throwable $e) {
-            return false;
-        }
-    }
-    private function tablaExiste(string $table): bool
-    {
-        try {
-            $stmt = $this->db->prepare('SHOW TABLES LIKE :table');
-            $stmt->execute([':table' => $table]);
-
-            return (bool) $stmt->fetchColumn();
-        } catch (Throwable) {
             return false;
         }
     }
