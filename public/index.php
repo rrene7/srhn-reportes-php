@@ -57,6 +57,10 @@ try {
 
     match ($path) {
         '/', '/reportes' => $controller->index(),
+        '/reportes/por-rango' => $controller->porRango(),
+        '/reportes/por-dependencia' => $controller->porDependencia(),
+        '/reportes/acciones' => $controller->acciones(),
+        '/reportes/consulta-funcionario' => $controller->consultaFuncionario(),
         '/reportes/resultado' => $controller->resultado(),
         '/reportes/exportar-csv' => $controller->exportarCsv(),
         default => notFound(),
