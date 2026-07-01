@@ -88,16 +88,18 @@
                         <th>Estado</th>
                         <th>Ingreso</th>
                         <th>Ascenso</th>
+                        <th>Acciones</th>
                     </tr>
                 </thead>
                 <tbody>
                     <?php if (empty($rows)): ?>
                         <tr>
-                            <td colspan="8" class="empty">No se encontraron registros para la consulta indicada.</td>
+                            <td colspan="9" class="empty">No se encontraron registros para la consulta indicada.</td>
                         </tr>
                     <?php endif; ?>
 
                     <?php foreach ($rows as $row): ?>
+                        <?php $identificador = (string) (($row['nemp'] ?? '') !== '' ? $row['nemp'] : ($row['cedula'] ?? '')); ?>
                         <tr>
                             <td>
                                 <strong><?= e(trim(($row['nombre'] ?? '') . ' ' . ($row['apellido'] ?? ''))) ?></strong><br>
@@ -119,6 +121,9 @@
                             </td>
                             <td><?= e($row['fecing'] ?? '') ?></td>
                             <td><?= e($row['fecascen'] ?? '') ?></td>
+                            <td>
+                                <a class="button-secondary" href="<?= e(url('/reportes/funcionario?' . http_build_query(['buscar' => $identificador]))) ?>">Ver ficha</a>
+                            </td>
                         </tr>
                     <?php endforeach; ?>
                 </tbody>
