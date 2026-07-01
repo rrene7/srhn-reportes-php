@@ -4,7 +4,15 @@
 /** @var array $totalesRango */
 /** @var array $totalesCuartel */
 /** @var array $filtros */
+/** @var int $pagina */
+/** @var int $porPagina */
+/** @var int $totalPaginas */
+/** @var int $offset */
 $queryString = http_build_query($filtros);
+$desde = $total > 0 ? $offset + 1 : 0;
+$hasta = min($offset + $porPagina, $total);
+$prevQuery = http_build_query(array_merge($filtros, ['page' => max(1, $pagina - 1)]));
+$nextQuery = http_build_query(array_merge($filtros, ['page' => min($totalPaginas, $pagina + 1)]));
 ?>
 
 <section class="card no-print">
@@ -12,12 +20,24 @@ $queryString = http_build_query($filtros);
         <div>
             <h2>Resultado del reporte</h2>
             <p>Total encontrado: <strong><?= e($total) ?></strong></p>
+            <p>Mostrando <strong><?= e($desde) ?></strong> a <strong><?= e($hasta) ?></strong> de <strong><?= e($total) ?></strong> registros.</p>
+            <p>Página <strong><?= e($pagina) ?></strong> de <strong><?= e($totalPaginas) ?></strong></p>
         </div>
         <div class="toolbar">
             <button onclick="window.print()">Imprimir</button>
             <a class="button-secondary" href="<?= e(url('/reportes/exportar-csv?' . $queryString)) ?>">Exportar CSV</a>
             <a class="button-secondary" href="<?= e(url('/reportes')) ?>">Nuevo filtro</a>
         </div>
+    </div>
+
+    <div class="toolbar">
+        <?php if ($pagina > 1): ?>
+            <a class="button-secondary" href="<?= e(url('/reportes/resultado?' . $prevQuery)) ?>">← Página anterior</a>
+        <?php endif; ?>
+
+        <?php if ($pagina < $totalPaginas): ?>
+            <a class="button-secondary" href="<?= e(url('/reportes/resultado?' . $nextQuery)) ?>">Página siguiente →</a>
+        <?php endif; ?>
     </div>
 </section>
 
@@ -125,5 +145,17 @@ $queryString = http_build_query($filtros);
                 <?php endforeach; ?>
             </tbody>
         </table>
+    </div>
+</section>
+
+<section class="card no-print">
+    <div class="toolbar">
+        <?php if ($pagina > 1): ?>
+            <a class="button-secondary" href="<?= e(url('/reportes/resultado?' . $prevQuery)) ?>">← Página anterior</a>
+        <?php endif; ?>
+
+        <?php if ($pagina < $totalPaginas): ?>
+            <a class="button-secondary" href="<?= e(url('/reportes/resultado?' . $nextQuery)) ?>">Página siguiente →</a>
+        <?php endif; ?>
     </div>
 </section>
