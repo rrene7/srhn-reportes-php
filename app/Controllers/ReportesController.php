@@ -21,14 +21,27 @@ final class ReportesController
 
     public function index(): void
     {
-        View::render('reportes/index', [
-            'title' => 'Reportes generales',
-            'rangos' => $this->model->listarRangos(),
-            'cuarteles' => $this->model->listarCuarteles(),
-            'estados' => $this->model->listarEstados(),
-            'filtros' => [],
-            'error' => null,
-        ]);
+        $this->renderFormulario('general');
+    }
+
+    public function porRango(): void
+    {
+        $this->renderFormulario('rango');
+    }
+
+    public function porDependencia(): void
+    {
+        $this->renderFormulario('dependencia');
+    }
+
+    public function acciones(): void
+    {
+        $this->renderFormulario('acciones');
+    }
+
+    public function consultaFuncionario(): void
+    {
+        $this->renderFormulario('consulta');
     }
 
     public function resultado(): void
@@ -59,14 +72,7 @@ final class ReportesController
                 'error' => null,
             ]);
         } catch (Throwable $e) {
-            View::render('reportes/index', [
-                'title' => 'Reportes generales',
-                'rangos' => $this->model->listarRangos(),
-                'cuarteles' => $this->model->listarCuarteles(),
-                'estados' => $this->model->listarEstados(),
-                'filtros' => $filtros,
-                'error' => $e->getMessage(),
-            ]);
+            $this->renderFormulario('general', $filtros, $e->getMessage());
         }
     }
 
@@ -122,6 +128,60 @@ final class ReportesController
         }, $rows);
 
         Response::csv('srhn-reporte-personal.csv', $headers, $csvRows);
+    }
+
+    private function renderFormulario(string $modulo, array $filtros = [], ?string $error = null): void
+    {
+        $modulos = $this->modulosDisponibles();
+        $actual = $modulos[$modulo] ?? $modulos['general'];
+
+        View::render('reportes/index', [
+            'title' => $actual['titulo'],
+            'rangos' => $this->model->listarRangos(),
+            'cuarteles' => $this->model->listarCuarteles(),
+            'estados' => $this->model->listarEstados(),
+            'filtros' => $filtros,
+            'error' => $error,
+            'modulo' => $modulo,
+            'modulos' => $modulos,
+            'moduloActual' => $actual,
+        ]);
+    }
+
+    private function modulosDisponibles(): array
+    {
+        return [
+            'general' => [
+                'titulo' => 'Reporte general de personal',
+                'descripcion' => 'Listado general equivalente al reporte principal del módulo legado.',
+                'ruta' => '/reportes',
+                'estado' => 'Disponible',
+            ],
+            'rango' => [
+                'titulo' => 'Reporte por rango',
+                'descripcion' => 'Equivalente base a LISTARAN: filtra y resume el personal por jerarquía/rango.',
+                'ruta' => '/reportes/por-rango',
+                'estado' => 'Disponible',
+            ],
+            'dependencia' => [
+                'titulo' => 'Reporte por dependencia',
+                'descripcion' => 'Equivalente base a LISTAUBI: filtra y resume el personal por ubicación o dependencia.',
+                'ruta' => '/reportes/por-dependencia',
+                'estado' => 'Disponible',
+            ],
+            'acciones' => [
+                'titulo' => 'Acciones de personal',
+                'descripcion' => 'Módulo pendiente para reconstruir listados de acciones, traslados, ascensos y novedades.',
+                'ruta' => '/reportes/acciones',
+                'estado' => 'Pendiente',
+            ],
+            'consulta' => [
+                'titulo' => 'Consulta de funcionario',
+                'descripcion' => 'Equivalente base a CONSULTA: búsqueda individual por cédula, posición, nombre o apellido.',
+                'ruta' => '/reportes/consulta-funcionario',
+                'estado' => 'Base lista',
+            ],
+        ];
     }
 
     private function filtrosDesdeRequest(): array
