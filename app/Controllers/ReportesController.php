@@ -72,6 +72,32 @@ final class ReportesController
         }
     }
 
+    public function fichaFuncionario(): void
+    {
+        $buscar = trim((string) ($_GET['buscar'] ?? ''));
+
+        if ($buscar === '') {
+            $this->renderFicha(null, 'Debe indicar una cédula, posición o número de empleado.');
+            return;
+        }
+
+        $filtros = [
+            'rango_desde' => '',
+            'rango_hasta' => '',
+            'cuartel_desde' => '',
+            'cuartel_hasta' => '',
+            'estado' => '',
+            'buscar' => $buscar,
+        ];
+
+        try {
+            $rows = $this->model->buscarPersonalPaginado($filtros, 1, 0);
+            $this->renderFicha($rows[0] ?? null, null, $buscar);
+        } catch (Throwable $e) {
+            $this->renderFicha(null, $e->getMessage(), $buscar);
+        }
+    }
+
     public function resultado(): void
     {
         $filtros = $this->filtrosDesdeRequest();
@@ -185,6 +211,21 @@ final class ReportesController
             'buscar' => $buscar,
             'rows' => $rows,
             'total' => $total,
+            'error' => $error,
+            'modulo' => 'consulta',
+            'modulos' => $modulos,
+            'moduloActual' => $modulos['consulta'],
+        ]);
+    }
+
+    private function renderFicha(?array $funcionario, ?string $error = null, string $buscar = ''): void
+    {
+        $modulos = $this->modulosDisponibles();
+
+        View::render('reportes/funcionario', [
+            'title' => 'Ficha de funcionario',
+            'funcionario' => $funcionario,
+            'buscar' => $buscar,
             'error' => $error,
             'modulo' => 'consulta',
             'modulos' => $modulos,
