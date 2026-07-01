@@ -171,16 +171,18 @@ $formatearFiltro = static fn (string $valor): string => $valor !== '' ? $valor :
                     <th>Ingreso</th>
                     <th>Ascenso</th>
                     <th>Estado</th>
+                    <th class="no-print">Acciones</th>
                 </tr>
             </thead>
             <tbody>
                 <?php if (empty($rows)): ?>
                     <tr>
-                        <td colspan="10" class="empty">No se encontraron registros.</td>
+                        <td colspan="11" class="empty">No se encontraron registros.</td>
                     </tr>
                 <?php endif; ?>
 
                 <?php foreach ($rows as $row): ?>
+                    <?php $identificador = (string) (($row['nemp'] ?? '') !== '' ? $row['nemp'] : ($row['cedula'] ?? '')); ?>
                     <tr>
                         <td>
                             <strong><?= e($row['rango']) ?></strong><br>
@@ -200,6 +202,9 @@ $formatearFiltro = static fn (string $valor): string => $valor !== '' ? $valor :
                         <td>
                             <strong><?= e($row['estado'] ?? '') ?></strong><br>
                             <small><?= e($row['estado_nombre'] ?? '') ?></small>
+                        </td>
+                        <td class="no-print">
+                            <a class="button-secondary" href="<?= e(url('/reportes/funcionario?' . http_build_query(['buscar' => $identificador]))) ?>">Ver ficha</a>
                         </td>
                     </tr>
                 <?php endforeach; ?>
