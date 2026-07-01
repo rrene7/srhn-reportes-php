@@ -13,6 +13,15 @@ $desde = $total > 0 ? $offset + 1 : 0;
 $hasta = min($offset + $porPagina, $total);
 $prevQuery = http_build_query(array_merge($filtros, ['page' => max(1, $pagina - 1)]));
 $nextQuery = http_build_query(array_merge($filtros, ['page' => min($totalPaginas, $pagina + 1)]));
+
+$rangoDesde = trim((string) ($filtros['rango_desde'] ?? ''));
+$rangoHasta = trim((string) ($filtros['rango_hasta'] ?? ''));
+$cuartelDesde = trim((string) ($filtros['cuartel_desde'] ?? ''));
+$cuartelHasta = trim((string) ($filtros['cuartel_hasta'] ?? ''));
+$estadoFiltro = trim((string) ($filtros['estado'] ?? ''));
+$buscarFiltro = trim((string) ($filtros['buscar'] ?? ''));
+
+$formatearFiltro = static fn (string $valor): string => $valor !== '' ? $valor : 'Todos';
 ?>
 
 <section class="card no-print">
@@ -38,6 +47,34 @@ $nextQuery = http_build_query(array_merge($filtros, ['page' => min($totalPaginas
         <?php if ($pagina < $totalPaginas): ?>
             <a class="button-secondary" href="<?= e(url('/reportes/resultado?' . $nextQuery)) ?>">Página siguiente →</a>
         <?php endif; ?>
+    </div>
+</section>
+
+<section class="card no-print">
+    <h3>Filtros aplicados</h3>
+    <div class="mini-table-wrapper">
+        <table class="mini-table">
+            <tbody>
+                <tr>
+                    <th>Rango desde</th>
+                    <td><?= e($formatearFiltro($rangoDesde)) ?></td>
+                    <th>Rango hasta</th>
+                    <td><?= e($formatearFiltro($rangoHasta)) ?></td>
+                </tr>
+                <tr>
+                    <th>Dependencia desde</th>
+                    <td><?= e($formatearFiltro($cuartelDesde)) ?></td>
+                    <th>Dependencia hasta</th>
+                    <td><?= e($formatearFiltro($cuartelHasta)) ?></td>
+                </tr>
+                <tr>
+                    <th>Estado</th>
+                    <td><?= e($formatearFiltro($estadoFiltro)) ?></td>
+                    <th>Búsqueda</th>
+                    <td><?= e($formatearFiltro($buscarFiltro)) ?></td>
+                </tr>
+            </tbody>
+        </table>
     </div>
 </section>
 
