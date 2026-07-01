@@ -251,19 +251,14 @@ final class ReportePersonalModel
     private function usarModeloNormalizado(): bool
     {
         try {
-            if (!$this->tablaExiste('employees')) {
-                return false;
-            }
-
             $stmt = $this->db->query('SELECT COUNT(*) AS total FROM employees');
             $row = $stmt->fetch();
 
             return (int) ($row['total'] ?? 0) > 0;
-        } catch (Throwable) {
+        } catch (Throwable $e) {
             return false;
         }
     }
-
     private function tablaExiste(string $table): bool
     {
         try {
