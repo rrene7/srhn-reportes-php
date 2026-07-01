@@ -38,20 +38,19 @@ final class ReportesController
         $porPagina = 100;
 
         try {
-            $rowsCompletas = $this->model->buscarPersonal($filtros);
-            $total = count($rowsCompletas);
+            $total = $this->model->contarPersonal($filtros);
             $totalPaginas = max(1, (int) ceil($total / $porPagina));
             $pagina = min($pagina, $totalPaginas);
             $offset = ($pagina - 1) * $porPagina;
-            $rows = array_slice($rowsCompletas, $offset, $porPagina);
+            $rows = $this->model->buscarPersonalPaginado($filtros, $porPagina, $offset);
 
             View::render('reportes/resultado', [
                 'title' => 'Resultado del reporte',
                 'filtros' => $filtros,
                 'rows' => $rows,
                 'total' => $total,
-                'totalesRango' => $this->model->totalesPorCampo($rowsCompletas, 'rango'),
-                'totalesCuartel' => $this->model->totalesPorCampo($rowsCompletas, 'cuartel'),
+                'totalesRango' => $this->model->totalesPorCampoConsulta($filtros, 'rango'),
+                'totalesCuartel' => $this->model->totalesPorCampoConsulta($filtros, 'cuartel'),
                 'pagina' => $pagina,
                 'porPagina' => $porPagina,
                 'totalPaginas' => $totalPaginas,
