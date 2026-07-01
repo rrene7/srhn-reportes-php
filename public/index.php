@@ -62,6 +62,7 @@ try {
         '/reportes/acciones' => $controller->acciones(),
         '/reportes/consulta-funcionario' => $controller->consultaFuncionario(),
         '/reportes/consulta-funcionario/resultado' => $controller->consultaResultado(),
+        '/reportes/funcionario' => $controller->fichaFuncionario(),
         '/reportes/resultado' => $controller->resultado(),
         '/reportes/exportar-csv' => $controller->exportarCsv(),
         default => notFound(),
