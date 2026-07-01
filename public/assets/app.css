@@ -1,0 +1,279 @@
+:root {
+    --bg: #f3f5f8;
+    --card: #ffffff;
+    --text: #1f2937;
+    --muted: #6b7280;
+    --line: #d8dee8;
+    --primary: #1e3a5f;
+    --primary-dark: #132941;
+    --accent: #d6a94a;
+    --error: #b91c1c;
+}
+
+* {
+    box-sizing: border-box;
+}
+
+body {
+    margin: 0;
+    font-family: Arial, Helvetica, sans-serif;
+    color: var(--text);
+    background: var(--bg);
+}
+
+.topbar {
+    background: linear-gradient(135deg, var(--primary), var(--primary-dark));
+    color: white;
+    padding: 22px 40px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+}
+
+.topbar h1 {
+    margin: 0;
+    font-size: 24px;
+}
+
+.topbar p {
+    margin: 4px 0 0;
+    color: #dce5f2;
+}
+
+.topbar a {
+    color: white;
+    text-decoration: none;
+    font-weight: bold;
+}
+
+.container {
+    max-width: 1280px;
+    margin: 24px auto;
+    padding: 0 20px;
+}
+
+.card {
+    background: var(--card);
+    border: 1px solid var(--line);
+    border-radius: 16px;
+    padding: 22px;
+    margin-bottom: 20px;
+    box-shadow: 0 8px 24px rgba(15, 23, 42, 0.06);
+}
+
+.card-header {
+    display: flex;
+    justify-content: space-between;
+    gap: 16px;
+    align-items: center;
+    margin-bottom: 18px;
+}
+
+.card h2,
+.card h3 {
+    margin-top: 0;
+}
+
+.card p {
+    color: var(--muted);
+}
+
+.filters {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(180px, 1fr));
+    gap: 18px;
+}
+
+.field {
+    display: flex;
+    flex-direction: column;
+    gap: 7px;
+}
+
+label {
+    font-weight: bold;
+    font-size: 14px;
+}
+
+select,
+input {
+    width: 100%;
+    border: 1px solid var(--line);
+    border-radius: 10px;
+    padding: 10px 12px;
+    font-size: 14px;
+    background: white;
+}
+
+.actions,
+.toolbar {
+    display: flex;
+    gap: 10px;
+    align-items: center;
+    flex-wrap: wrap;
+}
+
+.actions {
+    grid-column: 1 / -1;
+}
+
+button,
+.button-secondary {
+    display: inline-block;
+    border: 0;
+    border-radius: 10px;
+    padding: 11px 16px;
+    cursor: pointer;
+    font-weight: bold;
+    text-decoration: none;
+    font-size: 14px;
+}
+
+button {
+    background: var(--primary);
+    color: white;
+}
+
+button:hover {
+    background: var(--primary-dark);
+}
+
+.button-secondary {
+    background: #eef2f7;
+    color: var(--primary);
+}
+
+.alert {
+    padding: 12px 14px;
+    border-radius: 10px;
+    margin-bottom: 16px;
+}
+
+.alert-error {
+    background: #fee2e2;
+    color: var(--error);
+}
+
+.muted {
+    background: #fbfcfe;
+}
+
+.grid-2 {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 20px;
+}
+
+.table-wrapper,
+.mini-table-wrapper {
+    overflow-x: auto;
+}
+
+.report-table,
+.mini-table {
+    width: 100%;
+    border-collapse: collapse;
+}
+
+.report-table th,
+.report-table td,
+.mini-table th,
+.mini-table td {
+    border-bottom: 1px solid var(--line);
+    padding: 10px;
+    text-align: left;
+    vertical-align: top;
+}
+
+.report-table th,
+.mini-table th {
+    background: #f8fafc;
+    color: #334155;
+    font-size: 13px;
+    text-transform: uppercase;
+}
+
+.report-table td {
+    font-size: 13px;
+}
+
+small {
+    color: var(--muted);
+}
+
+.empty {
+    text-align: center;
+    color: var(--muted);
+    padding: 30px;
+}
+
+.print-title {
+    display: none;
+}
+
+.footer {
+    color: var(--muted);
+    text-align: center;
+    padding: 30px;
+    font-size: 13px;
+}
+
+code {
+    background: #eef2f7;
+    padding: 2px 6px;
+    border-radius: 6px;
+}
+
+@media (max-width: 900px) {
+    .filters,
+    .grid-2 {
+        grid-template-columns: 1fr;
+    }
+
+    .topbar,
+    .card-header {
+        flex-direction: column;
+        align-items: flex-start;
+    }
+}
+
+@media print {
+    body {
+        background: white;
+    }
+
+    .topbar,
+    .footer,
+    .no-print,
+    .toolbar {
+        display: none !important;
+    }
+
+    .container {
+        max-width: none;
+        margin: 0;
+        padding: 0;
+    }
+
+    .card {
+        box-shadow: none;
+        border: 0;
+        padding: 0;
+    }
+
+    .grid-2 {
+        display: none;
+    }
+
+    .print-title {
+        display: block;
+        text-align: center;
+        margin-bottom: 20px;
+    }
+
+    .report-table th,
+    .report-table td {
+        font-size: 10px;
+        padding: 5px;
+    }
+}
