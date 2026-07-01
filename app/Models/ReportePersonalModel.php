@@ -15,33 +15,40 @@ final class ReportePersonalModel
 
     public function listarRangos(): array
     {
-        try {
-            $stmt = $this->db->query("
-                SELECT codigoran AS codigo, rangocorto AS nombre
-                FROM tabran
-                ORDER BY codigoran ASC
+        if ($this->usarModeloNormalizado()) {
+            return $this->consultarCatalogo("
+                SELECT legacy_code AS codigo, name AS nombre
+                FROM ranks
+                ORDER BY sort_order ASC, legacy_code ASC
             ");
-
-            return $stmt->fetchAll();
-        } catch (Throwable) {
-            return [];
         }
+
+        return $this->consultarCatalogo("
+            SELECT codigoran AS codigo, rangocorto AS nombre
+            FROM tabran
+            ORDER BY codigoran ASC
+        ");
     }
 
     public function listarCuarteles(): array
     {
+        if ($this->usarModeloNormalizado()) {
+            return $this->consultarCatalogo("
+                SELECT legacy_code AS codigo, name AS nombre
+                FROM units
+                ORDER BY legacy_code ASC, name ASC
+            ");
+        }
+
         $consultas = [
             "SELECT codigocuar AS codigo, descricuar AS nombre FROM tabcuar WHERE vigente = 1 ORDER BY codigocuar ASC",
             "SELECT codigocuar AS codigo, descricuar AS nombre FROM tabcuar ORDER BY codigocuar ASC",
-            "SELECT codigocuar AS codigo, codigocuar AS nombre FROM tabcuar ORDER BY codigocuar ASC",
         ];
 
         foreach ($consultas as $sql) {
-            try {
-                $stmt = $this->db->query($sql);
-                return $stmt->fetchAll();
-            } catch (Throwable) {
-                continue;
+            $rows = $this->consultarCatalogo($sql);
+            if ($rows !== []) {
+                return $rows;
             }
         }
 
@@ -50,18 +57,23 @@ final class ReportePersonalModel
 
     public function listarEstados(): array
     {
+        if ($this->usarModeloNormalizado()) {
+            return $this->consultarCatalogo("
+                SELECT legacy_code AS codigo, name AS nombre
+                FROM statuses
+                ORDER BY legacy_code ASC
+            ");
+        }
+
         $consultas = [
             "SELECT codigo AS codigo, descripcion AS nombre FROM tabstatus ORDER BY codigo ASC",
             "SELECT codigosta AS codigo, descripsta AS nombre FROM tabstatus ORDER BY codigosta ASC",
-            "SELECT estado AS codigo, estado AS nombre FROM tabstatus ORDER BY estado ASC",
         ];
 
         foreach ($consultas as $sql) {
-            try {
-                $stmt = $this->db->query($sql);
-                return $stmt->fetchAll();
-            } catch (Throwable) {
-                continue;
+            $rows = $this->consultarCatalogo($sql);
+            if ($rows !== []) {
+                return $rows;
             }
         }
 
@@ -69,6 +81,108 @@ final class ReportePersonalModel
     }
 
     public function buscarPersonal(array $filtros): array
+    {
+        if ($this->usarModeloNormalizado()) {
+            return $this->buscarPersonalNormalizado($filtros);
+        }
+
+        return $this->buscarPersonalLegacy($filtros);
+    }
+
+    public function totalesPorCampo(array $rows, string $field): array
+    {
+        $totales = [];
+
+        foreach ($rows as $row) {
+            $codigo = (string) ($row[$field] ?? 'SIN DATO');
+            $nombreKey = $field . '_nombre';
+            $nombre = (string) ($row[$nombreKey] ?? $codigo);
+            $key = $codigo . '|' . $nombre;
+
+            if (!isset($totales[$key])) {
+                $totales[$key] = [
+                    'codigo' => $codigo,
+                    'nombre' => $nombre,
+                    'total' => 0,
+                ];
+            }
+
+            $totales[$key]['total']++;
+        }
+
+        usort($totales, fn ($a, $b) => strcmp((string) $a['codigo'], (string) $b['codigo']));
+
+        return $totales;
+    }
+
+    private function buscarPersonalNormalizado(array $filtros): array
+    {
+        $sql = "
+            SELECT
+                COALESCE(r.legacy_code, '') AS rango,
+                r.name AS rango_nombre,
+                e.legacy_position AS nemp,
+                e.first_name AS nombre,
+                e.last_name AS apellido,
+                COALESCE(u.legacy_code, '') AS cuartel,
+                u.name AS cuartel_nombre,
+                e.document_number AS cedula,
+                e.sex AS sexo,
+                e.legacy_position AS posicipn,
+                e.external_profile_id AS posicimi,
+                e.hire_date AS fecing,
+                e.promotion_date AS fecascen,
+                e.status_date AS fectras,
+                e.vacation_date AS fecvac,
+                COALESCE(s.legacy_code, '') AS estado,
+                s.name AS estado_nombre,
+                e.birth_date AS fecnac,
+                e.external_user_type AS tipopol
+            FROM employees e
+            LEFT JOIN ranks r ON r.id = e.rank_id
+            LEFT JOIN units u ON u.id = e.unit_id
+            LEFT JOIN statuses s ON s.id = e.status_id
+            WHERE e.legacy_position IS NOT NULL
+        ";
+
+        $params = [];
+
+        if (!empty($filtros['rango_desde']) && !empty($filtros['rango_hasta'])) {
+            $sql .= " AND r.legacy_code BETWEEN :rango_desde AND :rango_hasta";
+            $params[':rango_desde'] = $filtros['rango_desde'];
+            $params[':rango_hasta'] = $filtros['rango_hasta'];
+        }
+
+        if (!empty($filtros['cuartel_desde']) && !empty($filtros['cuartel_hasta'])) {
+            $sql .= " AND u.legacy_code BETWEEN :cuartel_desde AND :cuartel_hasta";
+            $params[':cuartel_desde'] = $filtros['cuartel_desde'];
+            $params[':cuartel_hasta'] = $filtros['cuartel_hasta'];
+        }
+
+        if (!empty($filtros['estado'])) {
+            $sql .= " AND s.legacy_code = :estado";
+            $params[':estado'] = $filtros['estado'];
+        }
+
+        if (!empty($filtros['buscar'])) {
+            $sql .= " AND (
+                e.document_number LIKE :buscar
+                OR e.first_name LIKE :buscar
+                OR e.last_name LIKE :buscar
+                OR CAST(e.legacy_position AS CHAR) LIKE :buscar
+            )";
+            $params[':buscar'] = '%' . $filtros['buscar'] . '%';
+        }
+
+        $sql .= " ORDER BY r.sort_order ASC, u.legacy_code ASC, e.last_name ASC, e.first_name ASC";
+
+        $stmt = $this->db->prepare($sql);
+        $stmt->execute($params);
+
+        return $stmt->fetchAll();
+    }
+
+    private function buscarPersonalLegacy(array $filtros): array
     {
         $sql = "
             SELECT
@@ -132,30 +246,42 @@ final class ReportePersonalModel
         return $this->enriquecerConCatalogos($rows);
     }
 
-    public function totalesPorCampo(array $rows, string $field): array
+    private function usarModeloNormalizado(): bool
     {
-        $totales = [];
-
-        foreach ($rows as $row) {
-            $codigo = (string) ($row[$field] ?? 'SIN DATO');
-            $nombreKey = $field . '_nombre';
-            $nombre = (string) ($row[$nombreKey] ?? $codigo);
-            $key = $codigo . '|' . $nombre;
-
-            if (!isset($totales[$key])) {
-                $totales[$key] = [
-                    'codigo' => $codigo,
-                    'nombre' => $nombre,
-                    'total' => 0,
-                ];
+        try {
+            if (!$this->tablaExiste('employees')) {
+                return false;
             }
 
-            $totales[$key]['total']++;
+            $stmt = $this->db->query('SELECT COUNT(*) AS total FROM employees');
+            $row = $stmt->fetch();
+
+            return (int) ($row['total'] ?? 0) > 0;
+        } catch (Throwable) {
+            return false;
         }
+    }
 
-        usort($totales, fn ($a, $b) => strcmp($a['codigo'], $b['codigo']));
+    private function tablaExiste(string $table): bool
+    {
+        try {
+            $stmt = $this->db->prepare('SHOW TABLES LIKE :table');
+            $stmt->execute([':table' => $table]);
 
-        return $totales;
+            return (bool) $stmt->fetchColumn();
+        } catch (Throwable) {
+            return false;
+        }
+    }
+
+    private function consultarCatalogo(string $sql): array
+    {
+        try {
+            $stmt = $this->db->query($sql);
+            return $stmt->fetchAll();
+        } catch (Throwable) {
+            return [];
+        }
     }
 
     private function enriquecerConCatalogos(array $rows): array
