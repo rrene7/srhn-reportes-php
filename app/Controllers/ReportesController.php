@@ -41,7 +41,35 @@ final class ReportesController
 
     public function consultaFuncionario(): void
     {
-        $this->renderFormulario('consulta');
+        $this->renderConsulta();
+    }
+
+    public function consultaResultado(): void
+    {
+        $buscar = trim((string) ($_GET['buscar'] ?? ''));
+
+        if ($buscar === '') {
+            $this->renderConsulta('', [], null, 'Debe escribir una cédula, posición, nombre o apellido para consultar.');
+            return;
+        }
+
+        $filtros = [
+            'rango_desde' => '',
+            'rango_hasta' => '',
+            'cuartel_desde' => '',
+            'cuartel_hasta' => '',
+            'estado' => '',
+            'buscar' => $buscar,
+        ];
+
+        try {
+            $total = $this->model->contarPersonal($filtros);
+            $rows = $this->model->buscarPersonalPaginado($filtros, 25, 0);
+
+            $this->renderConsulta($buscar, $rows, $total);
+        } catch (Throwable $e) {
+            $this->renderConsulta($buscar, [], null, $e->getMessage());
+        }
     }
 
     public function resultado(): void
@@ -148,6 +176,22 @@ final class ReportesController
         ]);
     }
 
+    private function renderConsulta(string $buscar = '', array $rows = [], ?int $total = null, ?string $error = null): void
+    {
+        $modulos = $this->modulosDisponibles();
+
+        View::render('reportes/consulta', [
+            'title' => 'Consulta de funcionario',
+            'buscar' => $buscar,
+            'rows' => $rows,
+            'total' => $total,
+            'error' => $error,
+            'modulo' => 'consulta',
+            'modulos' => $modulos,
+            'moduloActual' => $modulos['consulta'],
+        ]);
+    }
+
     private function modulosDisponibles(): array
     {
         return [
@@ -179,7 +223,7 @@ final class ReportesController
                 'titulo' => 'Consulta de funcionario',
                 'descripcion' => 'Equivalente base a CONSULTA: búsqueda individual por cédula, posición, nombre o apellido.',
                 'ruta' => '/reportes/consulta-funcionario',
-                'estado' => 'Base lista',
+                'estado' => 'Disponible',
             ],
         ];
     }
