@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Controllers;
 
+use App\Models\AccionesPersonalModel;
 use App\Models\ReportePersonalModel;
 use App\Support\Database;
 use App\Support\Response;
@@ -13,10 +14,13 @@ use Throwable;
 final class ReportesController
 {
     private ReportePersonalModel $model;
+    private AccionesPersonalModel $accionesModel;
 
     public function __construct()
     {
-        $this->model = new ReportePersonalModel(Database::connect());
+        $db = Database::connect();
+        $this->model = new ReportePersonalModel($db);
+        $this->accionesModel = new AccionesPersonalModel($db);
     }
 
     public function index(): void
@@ -36,7 +40,19 @@ final class ReportesController
 
     public function acciones(): void
     {
-        $this->renderFormulario('acciones');
+        $this->renderAcciones();
+    }
+
+    public function accionesResultado(): void
+    {
+        $filtros = $this->filtrosAccionesDesdeRequest();
+
+        try {
+            $rows = $this->accionesModel->buscar($filtros, 100);
+            $this->renderAcciones($filtros, $rows);
+        } catch (Throwable $e) {
+            $this->renderAcciones($filtros, [], $e->getMessage());
+        }
     }
 
     public function consultaFuncionario(): void
@@ -202,6 +218,23 @@ final class ReportesController
         ]);
     }
 
+    private function renderAcciones(array $filtros = [], ?array $rows = null, ?string $error = null): void
+    {
+        $modulos = $this->modulosDisponibles();
+        $metadata = $this->accionesModel->metadata();
+
+        View::render('reportes/acciones', [
+            'title' => 'Acciones de personal',
+            'filtros' => $filtros,
+            'rows' => $rows,
+            'metadata' => $metadata,
+            'error' => $error,
+            'modulo' => 'acciones',
+            'modulos' => $modulos,
+            'moduloActual' => $modulos['acciones'],
+        ]);
+    }
+
     private function renderConsulta(string $buscar = '', array $rows = [], ?int $total = null, ?string $error = null): void
     {
         $modulos = $this->modulosDisponibles();
@@ -256,9 +289,9 @@ final class ReportesController
             ],
             'acciones' => [
                 'titulo' => 'Acciones de personal',
-                'descripcion' => 'Módulo pendiente para reconstruir listados de acciones, traslados, ascensos y novedades.',
+                'descripcion' => 'Base para reconstruir listados de acciones, traslados, ascensos, vacaciones, licencias, sanciones y novedades.',
                 'ruta' => '/reportes/acciones',
-                'estado' => 'Pendiente',
+                'estado' => 'Base lista',
             ],
             'consulta' => [
                 'titulo' => 'Consulta de funcionario',
@@ -278,6 +311,16 @@ final class ReportesController
             'cuartel_hasta' => trim((string) ($_GET['cuartel_hasta'] ?? '')),
             'estado' => trim((string) ($_GET['estado'] ?? '')),
             'buscar' => trim((string) ($_GET['buscar'] ?? '')),
+        ];
+    }
+
+    private function filtrosAccionesDesdeRequest(): array
+    {
+        return [
+            'buscar' => trim((string) ($_GET['buscar'] ?? '')),
+            'tipo' => trim((string) ($_GET['tipo'] ?? '')),
+            'fecha_desde' => trim((string) ($_GET['fecha_desde'] ?? '')),
+            'fecha_hasta' => trim((string) ($_GET['fecha_hasta'] ?? '')),
         ];
     }
 
