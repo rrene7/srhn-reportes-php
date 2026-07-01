@@ -160,6 +160,16 @@ input {
     flex-wrap: wrap;
 }
 
+.toolbar select,
+.toolbar input {
+    width: auto;
+    min-width: 120px;
+}
+
+.toolbar label {
+    margin-right: 2px;
+}
+
 .actions {
     grid-column: 1 / -1;
 }
