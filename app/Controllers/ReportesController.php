@@ -34,17 +34,28 @@ final class ReportesController
     public function resultado(): void
     {
         $filtros = $this->filtrosDesdeRequest();
+        $pagina = $this->paginaDesdeRequest();
+        $porPagina = 100;
 
         try {
-            $rows = $this->model->buscarPersonal($filtros);
+            $rowsCompletas = $this->model->buscarPersonal($filtros);
+            $total = count($rowsCompletas);
+            $totalPaginas = max(1, (int) ceil($total / $porPagina));
+            $pagina = min($pagina, $totalPaginas);
+            $offset = ($pagina - 1) * $porPagina;
+            $rows = array_slice($rowsCompletas, $offset, $porPagina);
 
             View::render('reportes/resultado', [
                 'title' => 'Resultado del reporte',
                 'filtros' => $filtros,
                 'rows' => $rows,
-                'total' => count($rows),
-                'totalesRango' => $this->model->totalesPorCampo($rows, 'rango'),
-                'totalesCuartel' => $this->model->totalesPorCampo($rows, 'cuartel'),
+                'total' => $total,
+                'totalesRango' => $this->model->totalesPorCampo($rowsCompletas, 'rango'),
+                'totalesCuartel' => $this->model->totalesPorCampo($rowsCompletas, 'cuartel'),
+                'pagina' => $pagina,
+                'porPagina' => $porPagina,
+                'totalPaginas' => $totalPaginas,
+                'offset' => $offset,
                 'error' => null,
             ]);
         } catch (Throwable $e) {
@@ -123,5 +134,12 @@ final class ReportesController
             'estado' => trim((string) ($_GET['estado'] ?? '')),
             'buscar' => trim((string) ($_GET['buscar'] ?? '')),
         ];
+    }
+
+    private function paginaDesdeRequest(): int
+    {
+        $pagina = (int) ($_GET['page'] ?? 1);
+
+        return max(1, $pagina);
     }
 }
