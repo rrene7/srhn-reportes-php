@@ -61,6 +61,7 @@ try {
         '/reportes/por-dependencia' => $controller->porDependencia(),
         '/reportes/acciones' => $controller->acciones(),
         '/reportes/consulta-funcionario' => $controller->consultaFuncionario(),
+        '/reportes/consulta-funcionario/resultado' => $controller->consultaResultado(),
         '/reportes/resultado' => $controller->resultado(),
         '/reportes/exportar-csv' => $controller->exportarCsv(),
         default => notFound(),
