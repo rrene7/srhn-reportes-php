@@ -9,6 +9,7 @@
 $tabla = $metadata['tabla'] ?? null;
 $columnas = $metadata['columnas'] ?? [];
 $tipos = $metadata['tipos'] ?? [];
+$modo = (string) ($metadata['modo'] ?? 'generico');
 $buscar = (string) ($filtros['buscar'] ?? '');
 $tipo = (string) ($filtros['tipo'] ?? '');
 $fechaDesde = (string) ($filtros['fecha_desde'] ?? '');
@@ -52,14 +53,19 @@ $fechaHasta = (string) ($filtros['fecha_hasta'] ?? '');
         </div>
     <?php else: ?>
         <div class="alert alert-info">
-            Tabla detectada: <strong><?= e($tabla) ?></strong>. Columnas encontradas: <?= e(implode(', ', $columnas)) ?>.
+            Tabla detectada: <strong><?= e($tabla) ?></strong>.
+            <?php if ($modo === 'employee_actions'): ?>
+                El módulo está usando datos del funcionario mediante relación con <strong>employees</strong>.
+            <?php else: ?>
+                Columnas encontradas: <?= e(implode(', ', $columnas)) ?>.
+            <?php endif; ?>
         </div>
     <?php endif; ?>
 
     <form method="get" action="<?= e(url('/reportes/acciones/resultado')) ?>" class="filters">
         <div class="field">
             <label for="buscar">Buscar</label>
-            <input type="text" name="buscar" id="buscar" value="<?= e($buscar) ?>" placeholder="Cédula, posición, nombre, número o texto de la acción">
+            <input type="text" name="buscar" id="buscar" value="<?= e($buscar) ?>" placeholder="Cédula, posición, nombre, apellido, resolución u OGD">
         </div>
 
         <div class="field">
@@ -68,7 +74,11 @@ $fechaHasta = (string) ($filtros['fecha_hasta'] ?? '');
                 <select name="tipo" id="tipo">
                     <option value="">Todos</option>
                     <?php foreach ($tipos as $item): ?>
-                        <option value="<?= e($item) ?>" <?= $tipo === $item ? 'selected' : '' ?>><?= e($item) ?></option>
+                        <?php
+                        $codigoTipo = is_array($item) ? (string) ($item['codigo'] ?? '') : (string) $item;
+                        $nombreTipo = is_array($item) ? (string) ($item['nombre'] ?? $codigoTipo) : (string) $item;
+                        ?>
+                        <option value="<?= e($codigoTipo) ?>" <?= $tipo === $codigoTipo ? 'selected' : '' ?>><?= e($codigoTipo . ' - ' . $nombreTipo) ?></option>
                     <?php endforeach; ?>
                 </select>
             <?php else: ?>
@@ -103,30 +113,97 @@ $fechaHasta = (string) ($filtros['fecha_hasta'] ?? '');
         </div>
 
         <div class="table-wrapper">
-            <table class="report-table">
-                <thead>
-                    <tr>
-                        <?php foreach (array_slice($columnas, 0, 12) as $columna): ?>
-                            <th><?= e($columna) ?></th>
-                        <?php endforeach; ?>
-                    </tr>
-                </thead>
-                <tbody>
-                    <?php if (empty($rows)): ?>
+            <?php if ($modo === 'employee_actions'): ?>
+                <table class="report-table">
+                    <thead>
                         <tr>
-                            <td colspan="<?= e(max(1, min(12, count($columnas)))) ?>" class="empty">No se encontraron acciones con los filtros indicados.</td>
+                            <th>Funcionario</th>
+                            <th>Cédula</th>
+                            <th>N. Emp.</th>
+                            <th>Rango actual</th>
+                            <th>Dependencia actual</th>
+                            <th>Tipo acción</th>
+                            <th>Fecha acción</th>
+                            <th>Inicio / Fin</th>
+                            <th>Resolución / OGD</th>
+                            <th>Destino</th>
+                            <th>Detalle</th>
                         </tr>
-                    <?php endif; ?>
+                    </thead>
+                    <tbody>
+                        <?php if (empty($rows)): ?>
+                            <tr>
+                                <td colspan="11" class="empty">No se encontraron acciones con los filtros indicados.</td>
+                            </tr>
+                        <?php endif; ?>
 
-                    <?php foreach ($rows as $row): ?>
+                        <?php foreach ($rows as $row): ?>
+                            <tr>
+                                <td>
+                                    <strong><?= e($row['funcionario'] ?? '') ?></strong><br>
+                                    <small>ID funcionario: <?= e($row['employee_id'] ?? '') ?></small>
+                                </td>
+                                <td><?= e($row['cedula'] ?? '') ?></td>
+                                <td><?= e($row['nemp'] ?? '') ?></td>
+                                <td>
+                                    <strong><?= e($row['rango_codigo'] ?? '') ?></strong><br>
+                                    <small><?= e($row['rango_nombre'] ?? '') ?></small>
+                                </td>
+                                <td>
+                                    <strong><?= e($row['unidad_codigo'] ?? '') ?></strong><br>
+                                    <small><?= e($row['unidad_nombre'] ?? '') ?></small>
+                                </td>
+                                <td>
+                                    <strong><?= e($row['action_type_id'] ?? '') ?></strong><br>
+                                    <small><?= e($row['tipo_accion'] ?? '') ?></small>
+                                </td>
+                                <td><?= e($row['action_date'] ?? '') ?></td>
+                                <td>
+                                    <?= e($row['start_date'] ?? '') ?><br>
+                                    <small><?= e($row['end_date'] ?? '') ?></small>
+                                </td>
+                                <td>
+                                    Res: <?= e($row['resolution_number'] ?? '') ?><br>
+                                    <small>OGD: <?= e($row['ogd_number'] ?? '') ?></small>
+                                </td>
+                                <td>
+                                    Pos: <?= e($row['target_position'] ?? '') ?><br>
+                                    <small><?= e($row['rango_destino'] ?? '') ?> / <?= e($row['unidad_destino'] ?? '') ?></small>
+                                </td>
+                                <td>
+                                    <?= e($row['notes'] ?? '') ?><br>
+                                    <small><?= e($row['migration_review_status'] ?? '') ?></small>
+                                </td>
+                            </tr>
+                        <?php endforeach; ?>
+                    </tbody>
+                </table>
+            <?php else: ?>
+                <table class="report-table">
+                    <thead>
                         <tr>
                             <?php foreach (array_slice($columnas, 0, 12) as $columna): ?>
-                                <td><?= e($row[$columna] ?? '') ?></td>
+                                <th><?= e($columna) ?></th>
                             <?php endforeach; ?>
                         </tr>
-                    <?php endforeach; ?>
-                </tbody>
-            </table>
+                    </thead>
+                    <tbody>
+                        <?php if (empty($rows)): ?>
+                            <tr>
+                                <td colspan="<?= e(max(1, min(12, count($columnas)))) ?>" class="empty">No se encontraron acciones con los filtros indicados.</td>
+                            </tr>
+                        <?php endif; ?>
+
+                        <?php foreach ($rows as $row): ?>
+                            <tr>
+                                <?php foreach (array_slice($columnas, 0, 12) as $columna): ?>
+                                    <td><?= e($row[$columna] ?? '') ?></td>
+                                <?php endforeach; ?>
+                            </tr>
+                        <?php endforeach; ?>
+                    </tbody>
+                </table>
+            <?php endif; ?>
         </div>
     </section>
 <?php endif; ?>
