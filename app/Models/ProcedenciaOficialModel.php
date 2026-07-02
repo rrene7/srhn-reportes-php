@@ -185,16 +185,25 @@ final class ProcedenciaOficialModel
             'tropa' => 0,
             'activos' => 0,
             'inactivos' => 0,
+            'escuela_activos' => 0,
+            'escuela_inactivos' => 0,
+            'tropa_activos' => 0,
+            'tropa_inactivos' => 0,
         ];
 
         foreach ($rows as $row) {
-            if (($row['procedencia_oficial'] ?? '') === 'OFICIAL DE TROPA') {
+            $esTropa = ($row['procedencia_oficial'] ?? '') === 'OFICIAL DE TROPA';
+            $esActivo = ($row['estado_laboral'] ?? '') === 'ACTIVO';
+
+            if ($esTropa) {
                 $resumen['tropa']++;
+                $esActivo ? $resumen['tropa_activos']++ : $resumen['tropa_inactivos']++;
             } else {
                 $resumen['escuela']++;
+                $esActivo ? $resumen['escuela_activos']++ : $resumen['escuela_inactivos']++;
             }
 
-            if (($row['estado_laboral'] ?? '') === 'ACTIVO') {
+            if ($esActivo) {
                 $resumen['activos']++;
                 continue;
             }
