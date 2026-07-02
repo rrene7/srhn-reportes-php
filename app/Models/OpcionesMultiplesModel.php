@@ -197,7 +197,9 @@ final class OpcionesMultiplesModel
             $params[':tipo_policia'] = $tipoPolicia;
         }
 
-        $estadoModo = trim((string) ($filtros['estado_modo'] ?? 'todos'));
+        $estadoModo = array_key_exists('estado_modo', $_GET)
+            ? trim((string) ($_GET['estado_modo'] ?? 'todos'))
+            : 'todos';
         $estado = trim((string) ($filtros['estado'] ?? ''));
         if ($estadoModo === 'activo') {
             $where[] = "(COALESCE(s.legacy_code, e.legacy_status_code, '') = '10' OR UPPER(COALESCE(s.name, e.external_user_status, e.external_agent_status, '')) = 'ACTIVO')";
