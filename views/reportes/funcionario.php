@@ -38,6 +38,7 @@
             <a class="button-secondary" href="<?= e(url('/reportes/consulta-funcionario')) ?>">Nueva consulta</a>
             <?php if ($buscar !== ''): ?>
                 <a class="button-secondary" href="<?= e(url('/reportes/consulta-funcionario/resultado?' . http_build_query(['buscar' => $buscar]))) ?>">Volver al resultado</a>
+                <a class="button-secondary" href="<?= e(url('/reportes/exportar-csv?' . http_build_query(['formato' => 'ficha', 'buscar' => $buscar]))) ?>">Exportar ficha CSV</a>
             <?php endif; ?>
             <button onclick="window.print()">Imprimir ficha</button>
         </div>
