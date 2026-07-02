@@ -2,6 +2,7 @@
 
 declare(strict_types=1);
 
+use App\Controllers\OpcionesMultiplesController;
 use App\Controllers\ReportesController;
 use App\Support\Env;
 
@@ -54,11 +55,14 @@ $path = $path === '/' ? '/' : $path;
 
 try {
     $controller = new ReportesController();
+    $opcionesMultiplesController = new OpcionesMultiplesController();
 
     match ($path) {
         '/', '/reportes' => $controller->index(),
         '/reportes/por-rango' => $controller->porRango(),
         '/reportes/por-dependencia' => $controller->porDependencia(),
+        '/reportes/opciones-multiples' => $opcionesMultiplesController->index(),
+        '/reportes/opciones-multiples/exportar-csv' => $opcionesMultiplesController->exportarCsv(),
         '/reportes/procedencia-oficiales' => $controller->procedenciaOficiales(),
         '/reportes/procedencia-oficiales/exportar-csv' => $controller->exportarProcedenciaOficialesCsv(),
         '/reportes/acciones' => $controller->acciones(),
