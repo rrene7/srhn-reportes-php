@@ -281,6 +281,12 @@ final class ReportesController
 
     public function exportarCsv(): void
     {
+        $formato = trim((string) ($_GET['formato'] ?? ''));
+        if ($formato === 'ficha') {
+            $this->exportarFichaCsv();
+            return;
+        }
+
         $filtros = $this->filtrosDesdeRequest();
         $rows = $this->model->buscarPersonal($filtros);
 
@@ -331,6 +337,89 @@ final class ReportesController
         }, $rows);
 
         Response::csv('srhn-reporte-personal.csv', $headers, $csvRows);
+    }
+
+    private function exportarFichaCsv(): void
+    {
+        $buscar = trim((string) ($_GET['buscar'] ?? ''));
+        if ($buscar === '') {
+            Response::csv('srhn-ficha-funcionario.csv', ['Resultado'], [['Debe indicar una cédula, posición o número de empleado']]);
+        }
+
+        $filtros = [
+            'rango_desde' => '',
+            'rango_hasta' => '',
+            'cuartel_desde' => '',
+            'cuartel_hasta' => '',
+            'estado' => '',
+            'buscar' => $buscar,
+        ];
+
+        $rows = $this->model->buscarPersonalPaginado($filtros, 1, 0);
+        $funcionario = $rows[0] ?? null;
+
+        if ($funcionario === null) {
+            Response::csv('srhn-ficha-funcionario.csv', ['Resultado'], [['No se encontró el funcionario solicitado']]);
+        }
+
+        $identificador = (string) (($funcionario['nemp'] ?? '') !== '' ? $funcionario['nemp'] : ($funcionario['cedula'] ?? $buscar));
+        $acciones = $this->accionesModel->buscar([
+            'buscar' => $identificador,
+            'tipo' => '',
+            'categoria' => '',
+            'fecha_desde' => '',
+            'fecha_hasta' => '',
+        ], 50);
+        $complementaria = $this->complementariaModel->obtener($identificador);
+
+        $headers = ['Sección', 'Campo', 'Valor'];
+        $csvRows = [];
+
+        $camposFuncionario = [
+            'Nombre completo' => trim((string) (($funcionario['nombre'] ?? '') . ' ' . ($funcionario['apellido'] ?? ''))),
+            'Cédula' => $funcionario['cedula'] ?? '',
+            'Número de empleado' => $funcionario['nemp'] ?? '',
+            'Sexo' => $funcionario['sexo'] ?? '',
+            'Rango' => trim((string) (($funcionario['rango'] ?? '') . ' - ' . ($funcionario['rango_nombre'] ?? ''))),
+            'Estado' => trim((string) (($funcionario['estado'] ?? '') . ' - ' . ($funcionario['estado_nombre'] ?? ''))),
+            'Dependencia' => trim((string) (($funcionario['cuartel'] ?? '') . ' - ' . ($funcionario['cuartel_nombre'] ?? ''))),
+            'Posición PN' => $funcionario['posicipn'] ?? '',
+            'Posición MI' => $funcionario['posicimi'] ?? '',
+            'Fecha ingreso' => $funcionario['fecing'] ?? '',
+            'Fecha ascenso' => $funcionario['fecascen'] ?? '',
+            'Fecha traslado / estado' => $funcionario['fectras'] ?? '',
+            'Fecha vacaciones' => $funcionario['fecvac'] ?? '',
+            'Fecha nacimiento' => $funcionario['fecnac'] ?? '',
+            'Tipo policía' => $funcionario['tipopol'] ?? '',
+        ];
+
+        foreach ($camposFuncionario as $campo => $valor) {
+            $csvRows[] = ['Datos generales', $campo, $valor];
+        }
+
+        foreach ($acciones as $index => $accion) {
+            $numero = (string) ($index + 1);
+            $csvRows[] = ['Acción ' . $numero, 'Tipo', trim((string) (($accion['action_type_id'] ?? '') . ' - ' . ($accion['tipo_accion'] ?? '')))];
+            $csvRows[] = ['Acción ' . $numero, 'Fecha acción', $accion['action_date'] ?? ''];
+            $csvRows[] = ['Acción ' . $numero, 'Resolución', $accion['resolution_number'] ?? ''];
+            $csvRows[] = ['Acción ' . $numero, 'OGD', $accion['ogd_number'] ?? ''];
+            $csvRows[] = ['Acción ' . $numero, 'Destino', trim((string) (($accion['target_position'] ?? '') . ' / ' . ($accion['rango_destino'] ?? '') . ' / ' . ($accion['unidad_destino'] ?? '')))];
+            $csvRows[] = ['Acción ' . $numero, 'Detalle', $accion['notes'] ?? ''];
+        }
+
+        foreach ($complementaria as $seccion) {
+            $titulo = (string) ($seccion['titulo'] ?? 'Sección complementaria');
+            $tabla = (string) ($seccion['tabla'] ?? 'No detectada');
+            $csvRows[] = [$titulo, 'Tabla detectada', $tabla];
+
+            foreach (($seccion['rows'] ?? []) as $index => $row) {
+                foreach (array_slice(($seccion['columnas'] ?? []), 0, 12) as $columna) {
+                    $csvRows[] = [$titulo . ' ' . ((int) $index + 1), (string) $columna, $row[$columna] ?? ''];
+                }
+            }
+        }
+
+        Response::csv('srhn-ficha-' . preg_replace('/[^A-Za-z0-9_-]/', '_', $identificador) . '.csv', $headers, $csvRows);
     }
 
     private function accionesPorCategoria(string $categoria): void
