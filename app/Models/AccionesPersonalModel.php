@@ -19,6 +19,39 @@ final class AccionesPersonalModel
         'ACCIONES',
     ];
 
+    private const CATEGORIAS = [
+        'ascensos' => [
+            'titulo' => 'Ascensos',
+            'ruta' => '/reportes/acciones/ascensos',
+            'keywords' => ['ascenso', 'ascensos', 'promocion', 'promoción'],
+        ],
+        'traslados' => [
+            'titulo' => 'Traslados',
+            'ruta' => '/reportes/acciones/traslados',
+            'keywords' => ['traslado', 'traslados', 'reubicacion', 'reubicación'],
+        ],
+        'vacaciones' => [
+            'titulo' => 'Vacaciones',
+            'ruta' => '/reportes/acciones/vacaciones',
+            'keywords' => ['vacacion', 'vacación', 'vacaciones'],
+        ],
+        'licencias' => [
+            'titulo' => 'Licencias',
+            'ruta' => '/reportes/acciones/licencias',
+            'keywords' => ['licencia', 'licencias', 'permiso', 'permisos'],
+        ],
+        'sanciones' => [
+            'titulo' => 'Sanciones',
+            'ruta' => '/reportes/acciones/sanciones',
+            'keywords' => ['sancion', 'sanción', 'sanciones', 'disciplinaria', 'disciplinario', 'arresto'],
+        ],
+        'incapacidades' => [
+            'titulo' => 'Incapacidades',
+            'ruta' => '/reportes/acciones/incapacidades',
+            'keywords' => ['incapacidad', 'incapacidades', 'medica', 'médica', 'medico', 'médico'],
+        ],
+    ];
+
     public function __construct(
         private PDO $db
     ) {}
@@ -46,6 +79,16 @@ final class AccionesPersonalModel
         } catch (Throwable) {
             return null;
         }
+    }
+
+    public function categorias(): array
+    {
+        return self::CATEGORIAS;
+    }
+
+    public function categoria(string $clave): ?array
+    {
+        return self::CATEGORIAS[$clave] ?? null;
     }
 
     public function columnas(): array
@@ -138,6 +181,7 @@ final class AccionesPersonalModel
             'tabla' => $tabla,
             'columnas' => array_map(static fn (array $col): string => (string) ($col['Field'] ?? ''), $columnas),
             'tipos' => $this->tiposAccion(),
+            'categorias' => $this->categorias(),
             'modo' => $tabla === 'employee_actions' ? 'employee_actions' : 'generico',
         ];
     }
@@ -145,6 +189,7 @@ final class AccionesPersonalModel
     private function buscarEmployeeActions(array $filtros, int $limit): array
     {
         $buscar = trim((string) ($filtros['buscar'] ?? ''));
+        $categoria = trim((string) ($filtros['categoria'] ?? ''));
         $employeeIds = $buscar !== '' ? $this->resolverEmployeeIds($buscar) : [];
 
         $where = ['a.deleted_at IS NULL'];
@@ -175,6 +220,21 @@ final class AccionesPersonalModel
         if ($tipo !== '') {
             $where[] = 'a.action_type_id = :tipo';
             $params[':tipo'] = ['value' => (int) $tipo, 'type' => PDO::PARAM_INT];
+        }
+
+        if ($categoria !== '' && $tipo === '') {
+            $typeIds = $this->actionTypeIdsPorCategoria($categoria);
+            if ($typeIds === []) {
+                $where[] = '1 = 0';
+            } else {
+                $placeholders = [];
+                foreach ($typeIds as $index => $typeId) {
+                    $param = ':categoria_tipo_' . $index;
+                    $placeholders[] = $param;
+                    $params[$param] = ['value' => $typeId, 'type' => PDO::PARAM_INT];
+                }
+                $where[] = 'a.action_type_id IN (' . implode(',', $placeholders) . ')';
+            }
         }
 
         $fechaDesde = trim((string) ($filtros['fecha_desde'] ?? ''));
@@ -247,7 +307,7 @@ final class AccionesPersonalModel
 
         $sql .= ' WHERE ' . implode(' AND ', $where);
         $sql .= ' ORDER BY a.action_date DESC, a.id DESC LIMIT :limit';
-        $params[':limit'] = ['value' => max(1, min($limit, 100)), 'type' => PDO::PARAM_INT];
+        $params[':limit'] = ['value' => max(1, min($limit, 500)), 'type' => PDO::PARAM_INT];
 
         $stmt = $this->db->prepare($sql);
         $this->bindParams($stmt, $params);
@@ -356,6 +416,22 @@ final class AccionesPersonalModel
             $params[':tipo'] = $tipo;
         }
 
+        $categoria = trim((string) ($filtros['categoria'] ?? ''));
+        if ($categoria !== '' && $tipo === '' && $tipoColumna !== null) {
+            $categoriaConfig = $this->categoria($categoria);
+            if ($categoriaConfig === null) {
+                $sql .= ' AND 1 = 0';
+            } else {
+                $or = [];
+                foreach ($categoriaConfig['keywords'] as $index => $keyword) {
+                    $param = ':categoria_kw_' . $index;
+                    $or[] = 'LOWER(CAST(' . $this->id($tipoColumna) . ' AS CHAR)) LIKE ' . $param;
+                    $params[$param] = '%' . strtolower($keyword) . '%';
+                }
+                $sql .= ' AND (' . implode(' OR ', $or) . ')';
+            }
+        }
+
         $fechaColumna = $this->primeraColumnaExistente($columnas, [
             'fecha',
             'fecha_accion',
@@ -386,7 +462,7 @@ final class AccionesPersonalModel
         }
 
         $sql .= ' LIMIT :limit';
-        $params[':limit'] = ['value' => max(1, min($limit, 100)), 'type' => PDO::PARAM_INT];
+        $params[':limit'] = ['value' => max(1, min($limit, 500)), 'type' => PDO::PARAM_INT];
 
         $stmt = $this->db->prepare($sql);
         $this->bindParams($stmt, $params);
@@ -395,10 +471,43 @@ final class AccionesPersonalModel
         return $stmt->fetchAll();
     }
 
+    private function actionTypeIdsPorCategoria(string $categoria): array
+    {
+        $categoriaConfig = $this->categoria($categoria);
+        if ($categoriaConfig === null || !$this->tablaExiste('action_types')) {
+            return [];
+        }
+
+        $where = [];
+        $params = [];
+
+        foreach ($categoriaConfig['keywords'] as $index => $keyword) {
+            $param = ':keyword_' . $index;
+            $where[] = 'LOWER(name) LIKE ' . $param;
+            $params[$param] = '%' . strtolower($keyword) . '%';
+        }
+
+        if ($where === []) {
+            return [];
+        }
+
+        try {
+            $sql = 'SELECT id FROM action_types WHERE ' . implode(' OR ', $where) . ' ORDER BY id ASC LIMIT 50';
+            $stmt = $this->db->prepare($sql);
+            $this->bindParams($stmt, $params);
+            $stmt->execute();
+
+            return array_map('intval', $stmt->fetchAll(PDO::FETCH_COLUMN));
+        } catch (Throwable) {
+            return [];
+        }
+    }
+
     private function tieneFiltros(array $filtros): bool
     {
         return trim((string) ($filtros['buscar'] ?? '')) !== ''
             || trim((string) ($filtros['tipo'] ?? '')) !== ''
+            || trim((string) ($filtros['categoria'] ?? '')) !== ''
             || trim((string) ($filtros['fecha_desde'] ?? '')) !== ''
             || trim((string) ($filtros['fecha_hasta'] ?? '')) !== '';
     }
