@@ -6,10 +6,14 @@
 /** @var string $modulo */
 /** @var array $modulos */
 /** @var array $moduloActual */
-$buscar = (string) ($filtros['buscar'] ?? '');
-$procedencia = (string) ($filtros['procedencia'] ?? '');
-$estadoLaboral = (string) ($filtros['estado_laboral'] ?? '');
-$queryString = http_build_query($filtros);
+$buscar = (string) ($filtros['buscar'] ?? ($_GET['buscar'] ?? ''));
+$procedencia = (string) ($filtros['procedencia'] ?? ($_GET['procedencia'] ?? ''));
+$estadoLaboral = (string) ($filtros['estado_laboral'] ?? ($_GET['estado_laboral'] ?? ''));
+$queryString = http_build_query(array_filter([
+    'buscar' => $buscar,
+    'procedencia' => $procedencia,
+    'estado_laboral' => $estadoLaboral,
+], static fn (string $value): bool => $value !== ''));
 ?>
 
 <section class="card no-print">
@@ -89,13 +93,36 @@ $queryString = http_build_query($filtros);
         <div class="card muted">
             <h3>Total de oficiales</h3>
             <p><strong><?= e($resumen['total'] ?? 0) ?></strong></p>
-        </div>
-        <div class="card muted">
-            <h3>Resumen</h3>
-            <p>Escuela / sin tropa previa registrada: <strong><?= e($resumen['escuela'] ?? 0) ?></strong></p>
-            <p>Tropa: <strong><?= e($resumen['tropa'] ?? 0) ?></strong></p>
             <p>Activos: <strong><?= e($resumen['activos'] ?? 0) ?></strong></p>
             <p>Inactivos / otros estados: <strong><?= e($resumen['inactivos'] ?? 0) ?></strong></p>
+        </div>
+        <div class="card muted">
+            <h3>Resumen por procedencia</h3>
+            <p>Escuela / sin tropa previa registrada: <strong><?= e($resumen['escuela'] ?? 0) ?></strong></p>
+            <p>Tropa: <strong><?= e($resumen['tropa'] ?? 0) ?></strong></p>
+            <div class="mini-table-wrapper">
+                <table class="mini-table">
+                    <thead>
+                        <tr>
+                            <th>Procedencia</th>
+                            <th>Activos</th>
+                            <th>Inactivos / otros</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <tr>
+                            <td>Escuela / sin tropa previa registrada</td>
+                            <td><?= e($resumen['escuela_activos'] ?? 0) ?></td>
+                            <td><?= e($resumen['escuela_inactivos'] ?? 0) ?></td>
+                        </tr>
+                        <tr>
+                            <td>Tropa</td>
+                            <td><?= e($resumen['tropa_activos'] ?? 0) ?></td>
+                            <td><?= e($resumen['tropa_inactivos'] ?? 0) ?></td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
         </div>
     </div>
 </section>
