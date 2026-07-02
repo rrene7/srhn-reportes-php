@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Controllers;
 
 use App\Models\AccionesPersonalModel;
+use App\Models\HojaVidaComplementariaModel;
 use App\Models\ReportePersonalModel;
 use App\Support\Database;
 use App\Support\Response;
@@ -15,12 +16,14 @@ final class ReportesController
 {
     private ReportePersonalModel $model;
     private AccionesPersonalModel $accionesModel;
+    private HojaVidaComplementariaModel $complementariaModel;
 
     public function __construct()
     {
         $db = Database::connect();
         $this->model = new ReportePersonalModel($db);
         $this->accionesModel = new AccionesPersonalModel($db);
+        $this->complementariaModel = new HojaVidaComplementariaModel($db);
     }
 
     public function index(): void
@@ -110,6 +113,7 @@ final class ReportesController
             $rows = $this->model->buscarPersonalPaginado($filtros, 1, 0);
             $funcionario = $rows[0] ?? null;
             $acciones = [];
+            $complementaria = [];
 
             if ($funcionario !== null) {
                 $identificador = (string) (($funcionario['nemp'] ?? '') !== '' ? $funcionario['nemp'] : ($funcionario['cedula'] ?? $buscar));
@@ -119,9 +123,10 @@ final class ReportesController
                     'fecha_desde' => '',
                     'fecha_hasta' => '',
                 ], 10);
+                $complementaria = $this->complementariaModel->obtener($identificador);
             }
 
-            $this->renderFicha($funcionario, null, $buscar, $acciones);
+            $this->renderFicha($funcionario, null, $buscar, $acciones, $complementaria);
         } catch (Throwable $e) {
             $this->renderFicha(null, $e->getMessage(), $buscar);
         }
@@ -264,7 +269,7 @@ final class ReportesController
         ]);
     }
 
-    private function renderFicha(?array $funcionario, ?string $error = null, string $buscar = '', array $acciones = []): void
+    private function renderFicha(?array $funcionario, ?string $error = null, string $buscar = '', array $acciones = [], array $complementaria = []): void
     {
         $modulos = $this->modulosDisponibles();
 
@@ -272,6 +277,7 @@ final class ReportesController
             'title' => 'Ficha de funcionario',
             'funcionario' => $funcionario,
             'acciones' => $acciones,
+            'complementaria' => $complementaria,
             'buscar' => $buscar,
             'error' => $error,
             'modulo' => 'consulta',
