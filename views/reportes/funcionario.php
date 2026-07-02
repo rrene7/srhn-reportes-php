@@ -1,6 +1,7 @@
 <?php
 /** @var ?array $funcionario */
 /** @var array $acciones */
+/** @var array $complementaria */
 /** @var string $buscar */
 /** @var ?string $error */
 /** @var string $modulo */
@@ -173,11 +174,61 @@
             </table>
         </div>
     </section>
+
+    <section class="card">
+        <div class="card-header">
+            <div>
+                <h3>Hoja de vida complementaria</h3>
+                <p>Bloques preparados para cubrir estudios, familia, direcciones, conducta y condición física del sistema legado.</p>
+            </div>
+        </div>
+
+        <?php if (empty($complementaria)): ?>
+            <div class="empty">No hay secciones complementarias cargadas.</div>
+        <?php endif; ?>
+
+        <?php foreach ($complementaria as $seccion): ?>
+            <div class="card muted">
+                <h3><?= e($seccion['titulo'] ?? 'Sección') ?></h3>
+                <?php if (empty($seccion['tabla'])): ?>
+                    <p>No se detectó tabla para esta sección.</p>
+                <?php else: ?>
+                    <p>Tabla detectada: <strong><?= e($seccion['tabla']) ?></strong></p>
+                    <div class="table-wrapper">
+                        <table class="mini-table">
+                            <thead>
+                                <tr>
+                                    <?php foreach (array_slice($seccion['columnas'] ?? [], 0, 8) as $columna): ?>
+                                        <th><?= e($columna) ?></th>
+                                    <?php endforeach; ?>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                <?php if (empty($seccion['rows'])): ?>
+                                    <tr>
+                                        <td colspan="<?= e(max(1, min(8, count($seccion['columnas'] ?? [])))) ?>" class="empty">Sin registros encontrados para este funcionario.</td>
+                                    </tr>
+                                <?php endif; ?>
+
+                                <?php foreach ($seccion['rows'] ?? [] as $row): ?>
+                                    <tr>
+                                        <?php foreach (array_slice($seccion['columnas'] ?? [], 0, 8) as $columna): ?>
+                                            <td><?= e($row[$columna] ?? '') ?></td>
+                                        <?php endforeach; ?>
+                                    </tr>
+                                <?php endforeach; ?>
+                            </tbody>
+                        </table>
+                    </div>
+                <?php endif; ?>
+            </div>
+        <?php endforeach; ?>
+    </section>
 <?php endif; ?>
 
 <section class="card muted no-print">
     <h3>Siguiente fase</h3>
     <p>
-        Esta ficha queda lista para ampliar con estudios, familia, direcciones, conducta, evaluación física y otros apartados identificados en el sistema legado.
+        Esta ficha queda lista para especializar cada bloque complementario cuando confirmemos los nombres exactos de columnas de las tablas heredadas.
     </p>
 </section>
