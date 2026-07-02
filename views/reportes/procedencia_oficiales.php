@@ -8,6 +8,7 @@
 /** @var array $moduloActual */
 $buscar = (string) ($filtros['buscar'] ?? '');
 $procedencia = (string) ($filtros['procedencia'] ?? '');
+$estadoLaboral = (string) ($filtros['estado_laboral'] ?? '');
 $queryString = http_build_query($filtros);
 ?>
 
@@ -49,6 +50,7 @@ $queryString = http_build_query($filtros);
     <div class="alert alert-info">
         <strong>Regla aplicada:</strong>
         Si el funcionario actualmente es oficial y su historial registra rango previo como agente, cabo o sargento, se marca como <strong>Oficial de tropa</strong>. Si no hay evidencia previa de tropa, se marca como <strong>Oficial de escuela / sin tropa previa registrada</strong>.
+        El estado laboral sale de <strong>employees.status_id</strong> contra <strong>statuses</strong>; código <strong>10</strong> o descripción <strong>ACTIVO</strong> se considera activo.
     </div>
 
     <form method="get" action="<?= e(url('/reportes/procedencia-oficiales')) ?>" class="filters no-print">
@@ -63,6 +65,15 @@ $queryString = http_build_query($filtros);
                 <option value="" <?= $procedencia === '' ? 'selected' : '' ?>>Todos</option>
                 <option value="escuela" <?= $procedencia === 'escuela' ? 'selected' : '' ?>>Escuela / sin tropa previa registrada</option>
                 <option value="tropa" <?= $procedencia === 'tropa' ? 'selected' : '' ?>>Tropa</option>
+            </select>
+        </div>
+
+        <div class="field">
+            <label for="estado_laboral">Estado laboral</label>
+            <select name="estado_laboral" id="estado_laboral">
+                <option value="" <?= $estadoLaboral === '' ? 'selected' : '' ?>>Todos</option>
+                <option value="activo" <?= $estadoLaboral === 'activo' ? 'selected' : '' ?>>Activos</option>
+                <option value="inactivo" <?= $estadoLaboral === 'inactivo' ? 'selected' : '' ?>>Inactivos / otros estados</option>
             </select>
         </div>
 
@@ -83,6 +94,8 @@ $queryString = http_build_query($filtros);
             <h3>Resumen</h3>
             <p>Escuela / sin tropa previa registrada: <strong><?= e($resumen['escuela'] ?? 0) ?></strong></p>
             <p>Tropa: <strong><?= e($resumen['tropa'] ?? 0) ?></strong></p>
+            <p>Activos: <strong><?= e($resumen['activos'] ?? 0) ?></strong></p>
+            <p>Inactivos / otros estados: <strong><?= e($resumen['inactivos'] ?? 0) ?></strong></p>
         </div>
     </div>
 </section>
@@ -104,6 +117,7 @@ $queryString = http_build_query($filtros);
                     <th>Funcionario</th>
                     <th>Rango actual</th>
                     <th>Dependencia actual</th>
+                    <th>Estado</th>
                     <th>Procedencia</th>
                     <th>Evidencia</th>
                     <th>Motivo</th>
@@ -112,7 +126,7 @@ $queryString = http_build_query($filtros);
             <tbody>
                 <?php if (empty($rows)): ?>
                     <tr>
-                        <td colspan="8" class="empty">No se encontraron oficiales con los filtros indicados.</td>
+                        <td colspan="9" class="empty">No se encontraron oficiales con los filtros indicados.</td>
                     </tr>
                 <?php endif; ?>
 
@@ -131,6 +145,10 @@ $queryString = http_build_query($filtros);
                         <td>
                             <strong><?= e($row['unidad_codigo'] ?? '') ?></strong><br>
                             <small><?= e($row['unidad_actual'] ?? '') ?></small>
+                        </td>
+                        <td>
+                            <strong><?= e($row['estado_laboral'] ?? '') ?></strong><br>
+                            <small><?= e(($row['estado_codigo'] ?? '') . ' - ' . ($row['estado_nombre'] ?? '')) ?></small>
                         </td>
                         <td><strong><?= e($row['procedencia_oficial'] ?? '') ?></strong></td>
                         <td>
