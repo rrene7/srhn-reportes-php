@@ -58,6 +58,36 @@ final class ReportesController
         }
     }
 
+    public function accionesAscensos(): void
+    {
+        $this->accionesPorCategoria('ascensos');
+    }
+
+    public function accionesTraslados(): void
+    {
+        $this->accionesPorCategoria('traslados');
+    }
+
+    public function accionesVacaciones(): void
+    {
+        $this->accionesPorCategoria('vacaciones');
+    }
+
+    public function accionesLicencias(): void
+    {
+        $this->accionesPorCategoria('licencias');
+    }
+
+    public function accionesSanciones(): void
+    {
+        $this->accionesPorCategoria('sanciones');
+    }
+
+    public function accionesIncapacidades(): void
+    {
+        $this->accionesPorCategoria('incapacidades');
+    }
+
     public function exportarAccionesCsv(): void
     {
         $filtros = $this->filtrosAccionesDesdeRequest();
@@ -137,6 +167,7 @@ final class ReportesController
                 $acciones = $this->accionesModel->buscar([
                     'buscar' => $identificador,
                     'tipo' => '',
+                    'categoria' => '',
                     'fecha_desde' => '',
                     'fecha_hasta' => '',
                 ], 10);
@@ -233,6 +264,19 @@ final class ReportesController
         }, $rows);
 
         Response::csv('srhn-reporte-personal.csv', $headers, $csvRows);
+    }
+
+    private function accionesPorCategoria(string $categoria): void
+    {
+        $filtros = $this->filtrosAccionesDesdeRequest();
+        $filtros['categoria'] = $categoria;
+
+        try {
+            $rows = $this->accionesModel->buscar($filtros, 100);
+            $this->renderAcciones($filtros, $rows);
+        } catch (Throwable $e) {
+            $this->renderAcciones($filtros, [], $e->getMessage());
+        }
     }
 
     private function renderFormulario(string $modulo, array $filtros = [], ?string $error = null): void
@@ -356,6 +400,7 @@ final class ReportesController
         return [
             'buscar' => trim((string) ($_GET['buscar'] ?? '')),
             'tipo' => trim((string) ($_GET['tipo'] ?? '')),
+            'categoria' => trim((string) ($_GET['categoria'] ?? '')),
             'fecha_desde' => trim((string) ($_GET['fecha_desde'] ?? '')),
             'fecha_hasta' => trim((string) ($_GET['fecha_hasta'] ?? '')),
         ];
