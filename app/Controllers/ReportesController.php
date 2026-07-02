@@ -58,6 +58,23 @@ final class ReportesController
         }
     }
 
+    public function exportarAccionesCsv(): void
+    {
+        $filtros = $this->filtrosAccionesDesdeRequest();
+        $rows = $this->accionesModel->buscar($filtros, 500);
+
+        if ($rows === []) {
+            Response::csv('srhn-acciones-personal.csv', ['Resultado'], [['Sin registros para los filtros aplicados']]);
+        }
+
+        $headers = array_keys($rows[0]);
+        $csvRows = array_map(static function (array $row) use ($headers): array {
+            return array_map(static fn (string $header): mixed => $row[$header] ?? '', $headers);
+        }, $rows);
+
+        Response::csv('srhn-acciones-personal.csv', $headers, $csvRows);
+    }
+
     public function consultaFuncionario(): void
     {
         $this->renderConsulta();
