@@ -163,20 +163,24 @@ final class OpcionesMultiplesModel
         $where = ['1 = 1'];
         $params = [];
         $fechaCorte = $this->fechaCorte($filtros);
+        $reportePor = trim((string) ($filtros['reporte_por'] ?? 'ambos'));
+
+        $usarRango = in_array($reportePor, ['rango', 'ambos'], true);
+        $usarUbicacion = in_array($reportePor, ['ubicacion', 'ambos'], true);
 
         $rangoInicial = trim((string) ($filtros['rango_inicial'] ?? ''));
         $rangoFinal = trim((string) ($filtros['rango_final'] ?? ''));
-        if ($rangoInicial !== '') {
+        if ($usarRango && $rangoInicial !== '') {
             $where[] = 'CAST(COALESCE(r.legacy_code, 0) AS UNSIGNED) >= CAST(:rango_inicial AS UNSIGNED)';
             $params[':rango_inicial'] = $rangoInicial;
         }
-        if ($rangoFinal !== '') {
+        if ($usarRango && $rangoFinal !== '') {
             $where[] = 'CAST(COALESCE(r.legacy_code, 0) AS UNSIGNED) <= CAST(:rango_final AS UNSIGNED)';
             $params[':rango_final'] = $rangoFinal;
         }
 
         $unidad = trim((string) ($filtros['unidad'] ?? ''));
-        if ($unidad !== '') {
+        if ($usarUbicacion && $unidad !== '') {
             $where[] = 'COALESCE(u.legacy_code, \'\') = :unidad';
             $params[':unidad'] = $unidad;
         }
@@ -193,7 +197,7 @@ final class OpcionesMultiplesModel
             $params[':tipo_policia'] = $tipoPolicia;
         }
 
-        $estadoModo = trim((string) ($filtros['estado_modo'] ?? 'activo'));
+        $estadoModo = trim((string) ($filtros['estado_modo'] ?? 'todos'));
         $estado = trim((string) ($filtros['estado'] ?? ''));
         if ($estadoModo === 'activo') {
             $where[] = "(COALESCE(s.legacy_code, e.legacy_status_code, '') = '10' OR UPPER(COALESCE(s.name, e.external_user_status, e.external_agent_status, '')) = 'ACTIVO')";
