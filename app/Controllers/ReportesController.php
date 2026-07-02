@@ -108,7 +108,20 @@ final class ReportesController
 
         try {
             $rows = $this->model->buscarPersonalPaginado($filtros, 1, 0);
-            $this->renderFicha($rows[0] ?? null, null, $buscar);
+            $funcionario = $rows[0] ?? null;
+            $acciones = [];
+
+            if ($funcionario !== null) {
+                $identificador = (string) (($funcionario['nemp'] ?? '') !== '' ? $funcionario['nemp'] : ($funcionario['cedula'] ?? $buscar));
+                $acciones = $this->accionesModel->buscar([
+                    'buscar' => $identificador,
+                    'tipo' => '',
+                    'fecha_desde' => '',
+                    'fecha_hasta' => '',
+                ], 10);
+            }
+
+            $this->renderFicha($funcionario, null, $buscar, $acciones);
         } catch (Throwable $e) {
             $this->renderFicha(null, $e->getMessage(), $buscar);
         }
@@ -251,13 +264,14 @@ final class ReportesController
         ]);
     }
 
-    private function renderFicha(?array $funcionario, ?string $error = null, string $buscar = ''): void
+    private function renderFicha(?array $funcionario, ?string $error = null, string $buscar = '', array $acciones = []): void
     {
         $modulos = $this->modulosDisponibles();
 
         View::render('reportes/funcionario', [
             'title' => 'Ficha de funcionario',
             'funcionario' => $funcionario,
+            'acciones' => $acciones,
             'buscar' => $buscar,
             'error' => $error,
             'modulo' => 'consulta',
