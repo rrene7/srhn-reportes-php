@@ -6,6 +6,7 @@ namespace App\Controllers;
 
 use App\Models\AccionesPersonalModel;
 use App\Models\HojaVidaComplementariaModel;
+use App\Models\ProcedenciaOficialModel;
 use App\Models\ReportePersonalModel;
 use App\Support\Database;
 use App\Support\Response;
@@ -17,6 +18,7 @@ final class ReportesController
     private ReportePersonalModel $model;
     private AccionesPersonalModel $accionesModel;
     private HojaVidaComplementariaModel $complementariaModel;
+    private ProcedenciaOficialModel $procedenciaModel;
 
     public function __construct()
     {
@@ -24,6 +26,7 @@ final class ReportesController
         $this->model = new ReportePersonalModel($db);
         $this->accionesModel = new AccionesPersonalModel($db);
         $this->complementariaModel = new HojaVidaComplementariaModel($db);
+        $this->procedenciaModel = new ProcedenciaOficialModel($db);
     }
 
     public function index(): void
@@ -39,6 +42,60 @@ final class ReportesController
     public function porDependencia(): void
     {
         $this->renderFormulario('dependencia');
+    }
+
+    public function procedenciaOficiales(): void
+    {
+        $filtros = $this->filtrosProcedenciaDesdeRequest();
+
+        try {
+            $rows = $this->procedenciaModel->buscar($filtros, 500);
+            $resumen = $this->procedenciaModel->resumen($rows);
+
+            $this->renderProcedenciaOficiales($filtros, $rows, $resumen);
+        } catch (Throwable $e) {
+            $this->renderProcedenciaOficiales($filtros, [], ['total' => 0, 'escuela' => 0, 'tropa' => 0], $e->getMessage());
+        }
+    }
+
+    public function exportarProcedenciaOficialesCsv(): void
+    {
+        $filtros = $this->filtrosProcedenciaDesdeRequest();
+        $rows = $this->procedenciaModel->buscar($filtros, 1000);
+
+        $headers = [
+            'N. empleado',
+            'Cédula',
+            'Funcionario',
+            'Sexo',
+            'Código rango',
+            'Rango actual',
+            'Código dependencia',
+            'Dependencia actual',
+            'Procedencia',
+            'Evidencia de tropa',
+            'Fecha evidencia',
+            'Motivo',
+        ];
+
+        $csvRows = array_map(static function (array $row): array {
+            return [
+                $row['nemp'] ?? '',
+                $row['cedula'] ?? '',
+                $row['funcionario'] ?? '',
+                $row['sexo'] ?? '',
+                $row['rango_codigo'] ?? '',
+                $row['rango_actual'] ?? '',
+                $row['unidad_codigo'] ?? '',
+                $row['unidad_actual'] ?? '',
+                $row['procedencia_oficial'] ?? '',
+                $row['evidencia_tropa'] ?? '',
+                $row['fecha_evidencia'] ?? '',
+                $row['motivo'] ?? '',
+            ];
+        }, $rows);
+
+        Response::csv('srhn-procedencia-oficiales.csv', $headers, $csvRows);
     }
 
     public function acciones(): void
@@ -470,6 +527,22 @@ final class ReportesController
         ]);
     }
 
+    private function renderProcedenciaOficiales(array $filtros, array $rows, array $resumen, ?string $error = null): void
+    {
+        $modulos = $this->modulosDisponibles();
+
+        View::render('reportes/procedencia_oficiales', [
+            'title' => 'Procedencia de oficiales',
+            'filtros' => $filtros,
+            'rows' => $rows,
+            'resumen' => $resumen,
+            'error' => $error,
+            'modulo' => 'procedencia_oficiales',
+            'modulos' => $modulos,
+            'moduloActual' => $modulos['procedencia_oficiales'],
+        ]);
+    }
+
     private function renderConsulta(string $buscar = '', array $rows = [], ?int $total = null, ?string $error = null): void
     {
         $modulos = $this->modulosDisponibles();
@@ -524,6 +597,12 @@ final class ReportesController
                 'ruta' => '/reportes/por-dependencia',
                 'estado' => 'Disponible',
             ],
+            'procedencia_oficiales' => [
+                'titulo' => 'Procedencia de oficiales',
+                'descripcion' => 'Clasifica oficiales como escuela o tropa usando evidencia del historial de acciones.',
+                'ruta' => '/reportes/procedencia-oficiales',
+                'estado' => 'Nuevo reporte',
+            ],
             'acciones' => [
                 'titulo' => 'Acciones de personal',
                 'descripcion' => 'Base para reconstruir listados de acciones, traslados, ascensos, vacaciones, licencias, sanciones y novedades.',
@@ -559,6 +638,14 @@ final class ReportesController
             'categoria' => trim((string) ($_GET['categoria'] ?? '')),
             'fecha_desde' => trim((string) ($_GET['fecha_desde'] ?? '')),
             'fecha_hasta' => trim((string) ($_GET['fecha_hasta'] ?? '')),
+        ];
+    }
+
+    private function filtrosProcedenciaDesdeRequest(): array
+    {
+        return [
+            'buscar' => trim((string) ($_GET['buscar'] ?? '')),
+            'procedencia' => trim((string) ($_GET['procedencia'] ?? '')),
         ];
     }
 
