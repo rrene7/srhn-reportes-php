@@ -14,6 +14,7 @@ $buscar = (string) ($filtros['buscar'] ?? '');
 $tipo = (string) ($filtros['tipo'] ?? '');
 $fechaDesde = (string) ($filtros['fecha_desde'] ?? '');
 $fechaHasta = (string) ($filtros['fecha_hasta'] ?? '');
+$queryString = http_build_query($filtros);
 ?>
 
 <section class="card no-print">
@@ -98,6 +99,9 @@ $fechaHasta = (string) ($filtros['fecha_hasta'] ?? '');
 
         <div class="actions">
             <button type="submit">Buscar acciones</button>
+            <?php if ($rows !== null): ?>
+                <a href="<?= e(url('/reportes/acciones/exportar-csv?' . $queryString)) ?>" class="button-secondary">Exportar CSV</a>
+            <?php endif; ?>
             <a href="<?= e(url('/reportes/acciones')) ?>" class="button-secondary">Limpiar</a>
         </div>
     </form>
