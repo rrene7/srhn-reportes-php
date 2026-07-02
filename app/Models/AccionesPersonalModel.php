@@ -68,7 +68,7 @@ final class AccionesPersonalModel
     {
         if ($this->tablaDetectada() === 'employee_actions' && $this->tablaExiste('action_types')) {
             try {
-                $stmt = $this->db->query("SELECT id, name FROM action_types ORDER BY name ASC");
+                $stmt = $this->db->query('SELECT id, name FROM action_types ORDER BY name ASC');
                 return array_map(static function (array $row): array {
                     return [
                         'codigo' => (string) ($row['id'] ?? ''),
@@ -144,6 +144,50 @@ final class AccionesPersonalModel
 
     private function buscarEmployeeActions(array $filtros, int $limit): array
     {
+        $buscar = trim((string) ($filtros['buscar'] ?? ''));
+        $employeeIds = $buscar !== '' ? $this->resolverEmployeeIds($buscar) : [];
+
+        $where = ['a.deleted_at IS NULL'];
+        $params = [];
+
+        if ($buscar !== '') {
+            if ($employeeIds !== []) {
+                $placeholders = [];
+                foreach ($employeeIds as $index => $employeeId) {
+                    $param = ':employee_id_' . $index;
+                    $placeholders[] = $param;
+                    $params[$param] = ['value' => $employeeId, 'type' => PDO::PARAM_INT];
+                }
+
+                $where[] = 'a.employee_id IN (' . implode(',', $placeholders) . ')';
+            } elseif (ctype_digit($buscar)) {
+                $where[] = '(a.resolution_number = :buscar_texto OR a.ogd_number = :buscar_texto)';
+                $params[':buscar_texto'] = $buscar;
+            } else {
+                $where[] = '(a.resolution_number LIKE :buscar_prefijo OR a.ogd_number LIKE :buscar_prefijo)';
+                $params[':buscar_prefijo'] = $buscar . '%';
+            }
+        }
+
+        $tipo = trim((string) ($filtros['tipo'] ?? ''));
+        if ($tipo !== '') {
+            $where[] = 'a.action_type_id = :tipo';
+            $params[':tipo'] = ['value' => (int) $tipo, 'type' => PDO::PARAM_INT];
+        }
+
+        $fechaDesde = trim((string) ($filtros['fecha_desde'] ?? ''));
+        $fechaHasta = trim((string) ($filtros['fecha_hasta'] ?? ''));
+
+        if ($fechaDesde !== '') {
+            $where[] = 'a.action_date >= :fecha_desde';
+            $params[':fecha_desde'] = $fechaDesde;
+        }
+
+        if ($fechaHasta !== '') {
+            $where[] = 'a.action_date <= :fecha_hasta';
+            $params[':fecha_hasta'] = $fechaHasta;
+        }
+
         $joinActionTypes = $this->tablaExiste('action_types');
         $joinTargetRanks = $this->tablaExiste('ranks');
         $joinTargetUnits = $this->tablaExiste('units');
@@ -188,70 +232,19 @@ final class AccionesPersonalModel
         ";
 
         if ($joinActionTypes) {
-            $sql .= " LEFT JOIN action_types at ON at.id = a.action_type_id";
+            $sql .= ' LEFT JOIN action_types at ON at.id = a.action_type_id';
         }
 
         if ($joinTargetRanks) {
-            $sql .= " LEFT JOIN ranks tr ON tr.id = a.target_rank_id";
+            $sql .= ' LEFT JOIN ranks tr ON tr.id = a.target_rank_id';
         }
 
         if ($joinTargetUnits) {
-            $sql .= " LEFT JOIN units tu ON tu.id = a.target_unit_id";
+            $sql .= ' LEFT JOIN units tu ON tu.id = a.target_unit_id';
         }
 
-        $sql .= " WHERE a.deleted_at IS NULL";
-        $params = [];
-
-        $buscar = trim((string) ($filtros['buscar'] ?? ''));
-        if ($buscar !== '') {
-            if (ctype_digit($buscar)) {
-                $sql .= " AND (
-                    e.document_number = :buscar_texto
-                    OR e.document_number LIKE :buscar_prefijo
-                    OR e.external_agent_number = :buscar_texto
-                    OR e.legacy_position = :buscar_numero
-                    OR e.id = :buscar_numero
-                    OR a.employee_id = :buscar_numero
-                    OR a.resolution_number = :buscar_texto
-                    OR a.ogd_number = :buscar_texto
-                )";
-
-                $params[':buscar_texto'] = $buscar;
-                $params[':buscar_prefijo'] = $buscar . '%';
-                $params[':buscar_numero'] = ['value' => (int) $buscar, 'type' => PDO::PARAM_INT];
-            } else {
-                $sql .= " AND (
-                    e.document_number LIKE :buscar_prefijo
-                    OR e.first_name LIKE :buscar_prefijo
-                    OR e.last_name LIKE :buscar_prefijo
-                    OR a.resolution_number LIKE :buscar_prefijo
-                    OR a.ogd_number LIKE :buscar_prefijo
-                )";
-
-                $params[':buscar_prefijo'] = $buscar . '%';
-            }
-        }
-
-        $tipo = trim((string) ($filtros['tipo'] ?? ''));
-        if ($tipo !== '') {
-            $sql .= " AND a.action_type_id = :tipo";
-            $params[':tipo'] = ['value' => (int) $tipo, 'type' => PDO::PARAM_INT];
-        }
-
-        $fechaDesde = trim((string) ($filtros['fecha_desde'] ?? ''));
-        $fechaHasta = trim((string) ($filtros['fecha_hasta'] ?? ''));
-
-        if ($fechaDesde !== '') {
-            $sql .= " AND a.action_date >= :fecha_desde";
-            $params[':fecha_desde'] = $fechaDesde;
-        }
-
-        if ($fechaHasta !== '') {
-            $sql .= " AND a.action_date <= :fecha_hasta";
-            $params[':fecha_hasta'] = $fechaHasta;
-        }
-
-        $sql .= " ORDER BY a.action_date DESC, a.id DESC LIMIT :limit";
+        $sql .= ' WHERE ' . implode(' AND ', $where);
+        $sql .= ' ORDER BY a.action_date DESC, a.id DESC LIMIT :limit';
         $params[':limit'] = ['value' => max(1, min($limit, 100)), 'type' => PDO::PARAM_INT];
 
         $stmt = $this->db->prepare($sql);
@@ -259,6 +252,49 @@ final class AccionesPersonalModel
         $stmt->execute();
 
         return $stmt->fetchAll();
+    }
+
+    private function resolverEmployeeIds(string $buscar): array
+    {
+        $params = [];
+
+        if (ctype_digit($buscar)) {
+            $sql = "
+                SELECT id
+                FROM employees
+                WHERE id = :buscar_numero
+                   OR legacy_position = :buscar_numero
+                   OR external_agent_number = :buscar_texto
+                   OR document_number = :buscar_texto
+                   OR document_number LIKE :buscar_prefijo
+                LIMIT 25
+            ";
+
+            $params[':buscar_numero'] = ['value' => (int) $buscar, 'type' => PDO::PARAM_INT];
+            $params[':buscar_texto'] = $buscar;
+            $params[':buscar_prefijo'] = $buscar . '%';
+        } else {
+            $sql = "
+                SELECT id
+                FROM employees
+                WHERE document_number LIKE :buscar_prefijo
+                   OR first_name LIKE :buscar_prefijo
+                   OR last_name LIKE :buscar_prefijo
+                LIMIT 25
+            ";
+
+            $params[':buscar_prefijo'] = $buscar . '%';
+        }
+
+        try {
+            $stmt = $this->db->prepare($sql);
+            $this->bindParams($stmt, $params);
+            $stmt->execute();
+
+            return array_map('intval', $stmt->fetchAll(PDO::FETCH_COLUMN));
+        } catch (Throwable) {
+            return [];
+        }
     }
 
     private function buscarGenerico(array $filtros, int $limit): array
@@ -376,7 +412,7 @@ final class AccionesPersonalModel
     private function tablaExiste(string $table): bool
     {
         try {
-            $stmt = $this->db->prepare("SELECT 1 FROM INFORMATION_SCHEMA.TABLES WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = :table LIMIT 1");
+            $stmt = $this->db->prepare('SELECT 1 FROM INFORMATION_SCHEMA.TABLES WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = :table LIMIT 1');
             $stmt->execute([':table' => $table]);
 
             return (bool) $stmt->fetchColumn();
