@@ -54,6 +54,7 @@ final class OpcionesMultiplesModel
                 COALESCE(u.name, e.legacy_unit_name, e.external_substation_name, '') AS unidad_nombre,
                 COALESCE(s.legacy_code, e.legacy_status_code, '') AS estado_codigo,
                 COALESCE(s.name, e.external_user_status, e.external_agent_status, '') AS estado_nombre,
+                CONCAT(COALESCE(s.legacy_code, e.legacy_status_code, ''), ' - ', COALESCE(s.name, e.external_user_status, e.external_agent_status, '')) AS estado,
                 e.external_user_type AS tipo_policia,
                 e.external_profile_id AS posicion_mi,
                 e.hire_date AS fecha_ingreso,
@@ -62,8 +63,8 @@ final class OpcionesMultiplesModel
                 e.vacation_date AS fecha_vacaciones,
                 e.birth_date AS fecha_nacimiento,
                 CASE WHEN e.birth_date IS NULL THEN NULL ELSE TIMESTAMPDIFF(YEAR, e.birth_date, :fecha_corte_edad) END AS edad,
-                CASE WHEN e.hire_date IS NULL THEN NULL ELSE TIMESTAMPDIFF(YEAR, e.hire_date, :fecha_corte_servicio) END AS tiempo_servicio,
-                CASE WHEN e.promotion_date IS NULL THEN NULL ELSE TIMESTAMPDIFF(YEAR, e.promotion_date, :fecha_corte_rango) END AS tiempo_rango,
+                CASE WHEN e.hire_date IS NULL THEN NULL ELSE TIMESTAMPDIFF(YEAR, e.hire_date, :fecha_corte_servicio_select) END AS tiempo_servicio,
+                CASE WHEN e.promotion_date IS NULL THEN NULL ELSE TIMESTAMPDIFF(YEAR, e.promotion_date, :fecha_corte_rango_select) END AS tiempo_rango,
                 CASE WHEN e.hire_date IS NULL THEN NULL ELSE DATE_ADD(e.hire_date, INTERVAL 30 YEAR) END AS fecha_jubilacion
             FROM employees e
             LEFT JOIN ranks r ON r.id = e.rank_id
@@ -75,8 +76,8 @@ final class OpcionesMultiplesModel
         ";
 
         $params[':fecha_corte_edad'] = $fechaCorte;
-        $params[':fecha_corte_servicio'] = $fechaCorte;
-        $params[':fecha_corte_rango'] = $fechaCorte;
+        $params[':fecha_corte_servicio_select'] = $fechaCorte;
+        $params[':fecha_corte_rango_select'] = $fechaCorte;
         $params[':limit'] = ['value' => max(1, min($limit, 2000)), 'type' => PDO::PARAM_INT];
 
         $stmt = $this->db->prepare($sql);
@@ -89,7 +90,6 @@ final class OpcionesMultiplesModel
     public function contar(array $filtros): int
     {
         [$where, $params] = $this->where($filtros);
-        $fechaCorte = $this->fechaCorte($filtros);
 
         $sql = "
             SELECT COUNT(*)
@@ -99,9 +99,6 @@ final class OpcionesMultiplesModel
             LEFT JOIN statuses s ON s.id = e.status_id
             WHERE {$where}
         ";
-
-        $params[':fecha_corte_servicio'] = $fechaCorte;
-        $params[':fecha_corte_rango'] = $fechaCorte;
 
         $stmt = $this->db->prepare($sql);
         $this->bindParams($stmt, $params);
@@ -165,6 +162,7 @@ final class OpcionesMultiplesModel
     {
         $where = ['1 = 1'];
         $params = [];
+        $fechaCorte = $this->fechaCorte($filtros);
 
         $rangoInicial = trim((string) ($filtros['rango_inicial'] ?? ''));
         $rangoFinal = trim((string) ($filtros['rango_final'] ?? ''));
@@ -226,22 +224,26 @@ final class OpcionesMultiplesModel
         $tsMin = trim((string) ($filtros['ts_min'] ?? ''));
         $tsMax = trim((string) ($filtros['ts_max'] ?? ''));
         if ($tsMin !== '') {
-            $where[] = 'e.hire_date IS NOT NULL AND TIMESTAMPDIFF(YEAR, e.hire_date, :fecha_corte_servicio) >= :ts_min';
+            $where[] = 'e.hire_date IS NOT NULL AND TIMESTAMPDIFF(YEAR, e.hire_date, :fecha_corte_servicio_min) >= :ts_min';
+            $params[':fecha_corte_servicio_min'] = $fechaCorte;
             $params[':ts_min'] = ['value' => (int) $tsMin, 'type' => PDO::PARAM_INT];
         }
         if ($tsMax !== '') {
-            $where[] = 'e.hire_date IS NOT NULL AND TIMESTAMPDIFF(YEAR, e.hire_date, :fecha_corte_servicio) <= :ts_max';
+            $where[] = 'e.hire_date IS NOT NULL AND TIMESTAMPDIFF(YEAR, e.hire_date, :fecha_corte_servicio_max) <= :ts_max';
+            $params[':fecha_corte_servicio_max'] = $fechaCorte;
             $params[':ts_max'] = ['value' => (int) $tsMax, 'type' => PDO::PARAM_INT];
         }
 
         $trMin = trim((string) ($filtros['tr_min'] ?? ''));
         $trMax = trim((string) ($filtros['tr_max'] ?? ''));
         if ($trMin !== '') {
-            $where[] = 'e.promotion_date IS NOT NULL AND TIMESTAMPDIFF(YEAR, e.promotion_date, :fecha_corte_rango) >= :tr_min';
+            $where[] = 'e.promotion_date IS NOT NULL AND TIMESTAMPDIFF(YEAR, e.promotion_date, :fecha_corte_rango_min) >= :tr_min';
+            $params[':fecha_corte_rango_min'] = $fechaCorte;
             $params[':tr_min'] = ['value' => (int) $trMin, 'type' => PDO::PARAM_INT];
         }
         if ($trMax !== '') {
-            $where[] = 'e.promotion_date IS NOT NULL AND TIMESTAMPDIFF(YEAR, e.promotion_date, :fecha_corte_rango) <= :tr_max';
+            $where[] = 'e.promotion_date IS NOT NULL AND TIMESTAMPDIFF(YEAR, e.promotion_date, :fecha_corte_rango_max) <= :tr_max';
+            $params[':fecha_corte_rango_max'] = $fechaCorte;
             $params[':tr_max'] = ['value' => (int) $trMax, 'type' => PDO::PARAM_INT];
         }
 
