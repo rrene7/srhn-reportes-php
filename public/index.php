@@ -61,6 +61,7 @@ try {
         '/reportes/por-dependencia' => $controller->porDependencia(),
         '/reportes/acciones' => $controller->acciones(),
         '/reportes/acciones/resultado' => $controller->accionesResultado(),
+        '/reportes/acciones/exportar-csv' => $controller->exportarAccionesCsv(),
         '/reportes/consulta-funcionario' => $controller->consultaFuncionario(),
         '/reportes/consulta-funcionario/resultado' => $controller->consultaResultado(),
         '/reportes/funcionario' => $controller->fichaFuncionario(),
