@@ -92,17 +92,84 @@ final class ReportesController
     {
         $filtros = $this->filtrosAccionesDesdeRequest();
         $rows = $this->accionesModel->buscar($filtros, 500);
+        $categoria = trim((string) ($filtros['categoria'] ?? ''));
+        $filename = $categoria !== '' ? 'srhn-acciones-' . $categoria . '.csv' : 'srhn-acciones-personal.csv';
+
+        $headers = [
+            'ID acción',
+            'ID funcionario',
+            'N. empleado',
+            'Cédula',
+            'Funcionario',
+            'Sexo',
+            'Código rango actual',
+            'Rango actual',
+            'Código dependencia',
+            'Dependencia actual',
+            'Código tipo acción',
+            'Tipo acción',
+            'Fecha acción',
+            'Fecha cruda',
+            'Fecha inicio',
+            'Fecha fin',
+            'Resolución',
+            'Fecha resolución',
+            'OGD',
+            'Causa',
+            'Posición destino',
+            'Rango destino',
+            'Unidad destino',
+            'Duración',
+            'Unidad duración',
+            'Número incapacidad',
+            'Código doctor',
+            'Instalación médica',
+            'Adjunto',
+            'Notas',
+            'Estado migración',
+        ];
 
         if ($rows === []) {
-            Response::csv('srhn-acciones-personal.csv', ['Resultado'], [['Sin registros para los filtros aplicados']]);
+            Response::csv($filename, $headers, []);
         }
 
-        $headers = array_keys($rows[0]);
-        $csvRows = array_map(static function (array $row) use ($headers): array {
-            return array_map(static fn (string $header): mixed => $row[$header] ?? '', $headers);
+        $csvRows = array_map(static function (array $row): array {
+            return [
+                $row['accion_id'] ?? '',
+                $row['employee_id'] ?? '',
+                $row['nemp'] ?? '',
+                $row['cedula'] ?? '',
+                $row['funcionario'] ?? '',
+                $row['sexo'] ?? '',
+                $row['rango_codigo'] ?? '',
+                $row['rango_nombre'] ?? '',
+                $row['unidad_codigo'] ?? '',
+                $row['unidad_nombre'] ?? '',
+                $row['action_type_id'] ?? '',
+                $row['tipo_accion'] ?? '',
+                $row['action_date'] ?? '',
+                $row['raw_action_date'] ?? '',
+                $row['start_date'] ?? '',
+                $row['end_date'] ?? '',
+                $row['resolution_number'] ?? '',
+                $row['resolution_date'] ?? '',
+                $row['ogd_number'] ?? '',
+                $row['cause_code'] ?? '',
+                $row['target_position'] ?? '',
+                $row['rango_destino'] ?? '',
+                $row['unidad_destino'] ?? '',
+                $row['duration_value'] ?? '',
+                $row['duration_unit'] ?? '',
+                $row['incapacity_number'] ?? '',
+                $row['doctor_code'] ?? '',
+                $row['medical_facility'] ?? '',
+                $row['attachment_path'] ?? '',
+                $row['notes'] ?? '',
+                $row['migration_review_status'] ?? '',
+            ];
         }, $rows);
 
-        Response::csv('srhn-acciones-personal.csv', $headers, $csvRows);
+        Response::csv($filename, $headers, $csvRows);
     }
 
     public function consultaFuncionario(): void
