@@ -15,9 +15,9 @@ final class ProcedenciaOficialModel
 
     public function buscar(array $filtros = [], int $limit = 500): array
     {
-        $procedencia = trim((string) ($filtros['procedencia'] ?? ''));
-        $estadoLaboral = trim((string) ($filtros['estado_laboral'] ?? ''));
-        $buscar = trim((string) ($filtros['buscar'] ?? ''));
+        $procedencia = trim((string) ($filtros['procedencia'] ?? ($_GET['procedencia'] ?? '')));
+        $estadoLaboral = trim((string) ($filtros['estado_laboral'] ?? ($_GET['estado_laboral'] ?? '')));
+        $buscar = trim((string) ($filtros['buscar'] ?? ($_GET['buscar'] ?? '')));
 
         $sql = "
             SELECT
