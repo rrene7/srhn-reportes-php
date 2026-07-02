@@ -161,11 +161,13 @@ final class AccionesPersonalModel
 
                 $where[] = 'a.employee_id IN (' . implode(',', $placeholders) . ')';
             } elseif (ctype_digit($buscar)) {
-                $where[] = '(a.resolution_number = :buscar_texto OR a.ogd_number = :buscar_texto)';
-                $params[':buscar_texto'] = $buscar;
+                $where[] = '(a.resolution_number = :buscar_resolucion OR a.ogd_number = :buscar_ogd)';
+                $params[':buscar_resolucion'] = $buscar;
+                $params[':buscar_ogd'] = $buscar;
             } else {
-                $where[] = '(a.resolution_number LIKE :buscar_prefijo OR a.ogd_number LIKE :buscar_prefijo)';
-                $params[':buscar_prefijo'] = $buscar . '%';
+                $where[] = '(a.resolution_number LIKE :buscar_resolucion_prefijo OR a.ogd_number LIKE :buscar_ogd_prefijo)';
+                $params[':buscar_resolucion_prefijo'] = $buscar . '%';
+                $params[':buscar_ogd_prefijo'] = $buscar . '%';
             }
         }
 
@@ -262,28 +264,32 @@ final class AccionesPersonalModel
             $sql = "
                 SELECT id
                 FROM employees
-                WHERE id = :buscar_numero
-                   OR legacy_position = :buscar_numero
-                   OR external_agent_number = :buscar_texto
-                   OR document_number = :buscar_texto
-                   OR document_number LIKE :buscar_prefijo
+                WHERE id = :buscar_id
+                   OR legacy_position = :buscar_posicion
+                   OR external_agent_number = :buscar_agente
+                   OR document_number = :buscar_documento
+                   OR document_number LIKE :buscar_documento_prefijo
                 LIMIT 25
             ";
 
-            $params[':buscar_numero'] = ['value' => (int) $buscar, 'type' => PDO::PARAM_INT];
-            $params[':buscar_texto'] = $buscar;
-            $params[':buscar_prefijo'] = $buscar . '%';
+            $params[':buscar_id'] = ['value' => (int) $buscar, 'type' => PDO::PARAM_INT];
+            $params[':buscar_posicion'] = ['value' => (int) $buscar, 'type' => PDO::PARAM_INT];
+            $params[':buscar_agente'] = $buscar;
+            $params[':buscar_documento'] = $buscar;
+            $params[':buscar_documento_prefijo'] = $buscar . '%';
         } else {
             $sql = "
                 SELECT id
                 FROM employees
-                WHERE document_number LIKE :buscar_prefijo
-                   OR first_name LIKE :buscar_prefijo
-                   OR last_name LIKE :buscar_prefijo
+                WHERE document_number LIKE :buscar_documento_prefijo
+                   OR first_name LIKE :buscar_nombre_prefijo
+                   OR last_name LIKE :buscar_apellido_prefijo
                 LIMIT 25
             ";
 
-            $params[':buscar_prefijo'] = $buscar . '%';
+            $params[':buscar_documento_prefijo'] = $buscar . '%';
+            $params[':buscar_nombre_prefijo'] = $buscar . '%';
+            $params[':buscar_apellido_prefijo'] = $buscar . '%';
         }
 
         try {
