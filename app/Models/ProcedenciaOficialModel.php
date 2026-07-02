@@ -16,6 +16,7 @@ final class ProcedenciaOficialModel
     public function buscar(array $filtros = [], int $limit = 500): array
     {
         $procedencia = trim((string) ($filtros['procedencia'] ?? ''));
+        $estadoLaboral = trim((string) ($filtros['estado_laboral'] ?? ''));
         $buscar = trim((string) ($filtros['buscar'] ?? ''));
 
         $sql = "
@@ -29,6 +30,14 @@ final class ProcedenciaOficialModel
                 COALESCE(r.name, e.legacy_rank_name, '') AS rango_actual,
                 COALESCE(u.legacy_code, '') AS unidad_codigo,
                 COALESCE(u.name, e.legacy_unit_name, e.external_substation_name, '') AS unidad_actual,
+                COALESCE(s.legacy_code, e.legacy_status_code, '') AS estado_codigo,
+                COALESCE(s.name, e.external_user_status, e.external_agent_status, '') AS estado_nombre,
+                CASE
+                    WHEN COALESCE(s.legacy_code, e.legacy_status_code, '') = '10'
+                      OR UPPER(COALESCE(s.name, e.external_user_status, e.external_agent_status, '')) = 'ACTIVO'
+                    THEN 'ACTIVO'
+                    ELSE 'INACTIVO / OTRO ESTATUS'
+                END AS estado_laboral,
                 CASE
                     WHEN EXISTS (
                         SELECT 1
@@ -88,6 +97,7 @@ final class ProcedenciaOficialModel
             FROM employees e
             LEFT JOIN ranks r ON r.id = e.rank_id
             LEFT JOIN units u ON u.id = e.unit_id
+            LEFT JOIN statuses s ON s.id = e.status_id
             WHERE UPPER(COALESCE(r.name, e.legacy_rank_name, '')) REGEXP 'SUB[- ]?TENIENTE|TENIENTE|CAPITAN|CAPITÁN|MAYOR|SUB[- ]?COMISIONADO|COMISIONADO|SUB[- ]?DIRECTOR|DIRECTOR'
         ";
 
@@ -109,6 +119,20 @@ final class ProcedenciaOficialModel
             $params[':buscar_agente'] = $like;
             $params[':buscar_posicion'] = $like;
             $params[':buscar_id'] = $like;
+        }
+
+        if ($estadoLaboral === 'activo') {
+            $sql .= " AND (
+                COALESCE(s.legacy_code, e.legacy_status_code, '') = '10'
+                OR UPPER(COALESCE(s.name, e.external_user_status, e.external_agent_status, '')) = 'ACTIVO'
+            )";
+        }
+
+        if ($estadoLaboral === 'inactivo') {
+            $sql .= " AND NOT (
+                COALESCE(s.legacy_code, e.legacy_status_code, '') = '10'
+                OR UPPER(COALESCE(s.name, e.external_user_status, e.external_agent_status, '')) = 'ACTIVO'
+            )";
         }
 
         if ($procedencia === 'tropa') {
@@ -159,15 +183,23 @@ final class ProcedenciaOficialModel
             'total' => count($rows),
             'escuela' => 0,
             'tropa' => 0,
+            'activos' => 0,
+            'inactivos' => 0,
         ];
 
         foreach ($rows as $row) {
             if (($row['procedencia_oficial'] ?? '') === 'OFICIAL DE TROPA') {
                 $resumen['tropa']++;
+            } else {
+                $resumen['escuela']++;
+            }
+
+            if (($row['estado_laboral'] ?? '') === 'ACTIVO') {
+                $resumen['activos']++;
                 continue;
             }
 
-            $resumen['escuela']++;
+            $resumen['inactivos']++;
         }
 
         return $resumen;
