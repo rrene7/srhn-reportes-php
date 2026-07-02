@@ -9,12 +9,15 @@
 $tabla = $metadata['tabla'] ?? null;
 $columnas = $metadata['columnas'] ?? [];
 $tipos = $metadata['tipos'] ?? [];
+$categorias = $metadata['categorias'] ?? [];
 $modo = (string) ($metadata['modo'] ?? 'generico');
 $buscar = (string) ($filtros['buscar'] ?? '');
 $tipo = (string) ($filtros['tipo'] ?? '');
+$categoria = (string) ($filtros['categoria'] ?? '');
 $fechaDesde = (string) ($filtros['fecha_desde'] ?? '');
 $fechaHasta = (string) ($filtros['fecha_hasta'] ?? '');
 $queryString = http_build_query($filtros);
+$categoriaActual = $categoria !== '' && isset($categorias[$categoria]) ? $categorias[$categoria] : null;
 ?>
 
 <section class="card no-print">
@@ -36,11 +39,30 @@ $queryString = http_build_query($filtros);
     </div>
 </section>
 
+<section class="card no-print">
+    <div class="card-header">
+        <div>
+            <h2>Acciones por categoría</h2>
+            <p>Accesos directos para cubrir los listados específicos del DLL.</p>
+        </div>
+    </div>
+
+    <div class="report-menu">
+        <?php foreach ($categorias as $clave => $item): ?>
+            <a class="report-card <?= $categoria === $clave ? 'active' : '' ?>" href="<?= e(url('/reportes/acciones/resultado?' . http_build_query(['categoria' => $clave]))) ?>">
+                <span class="module-status"><?= $categoria === $clave ? 'Activo' : 'Listado' ?></span>
+                <strong><?= e($item['titulo'] ?? $clave) ?></strong>
+                <small>Filtra acciones relacionadas con <?= e(strtolower((string) ($item['titulo'] ?? $clave))) ?>.</small>
+            </a>
+        <?php endforeach; ?>
+    </div>
+</section>
+
 <section class="card">
     <div class="card-header">
         <div>
-            <h2><?= e($moduloActual['titulo']) ?></h2>
-            <p><?= e($moduloActual['descripcion']) ?></p>
+            <h2><?= e($categoriaActual['titulo'] ?? $moduloActual['titulo']) ?></h2>
+            <p><?= e($categoriaActual !== null ? 'Reporte específico de acciones filtrado por categoría.' : $moduloActual['descripcion']) ?></p>
         </div>
     </div>
 
@@ -64,6 +86,10 @@ $queryString = http_build_query($filtros);
     <?php endif; ?>
 
     <form method="get" action="<?= e(url('/reportes/acciones/resultado')) ?>" class="filters">
+        <?php if ($categoria !== ''): ?>
+            <input type="hidden" name="categoria" value="<?= e($categoria) ?>">
+        <?php endif; ?>
+
         <div class="field">
             <label for="buscar">Buscar</label>
             <input type="text" name="buscar" id="buscar" value="<?= e($buscar) ?>" placeholder="Cédula, posición, nombre, apellido, resolución u OGD">
@@ -111,7 +137,7 @@ $queryString = http_build_query($filtros);
     <section class="card">
         <div class="card-header">
             <div>
-                <h3>Resultado de acciones</h3>
+                <h3>Resultado de acciones<?= $categoriaActual !== null ? ': ' . e($categoriaActual['titulo'] ?? '') : '' ?></h3>
                 <p>Mostrando hasta 100 registros según los filtros aplicados.</p>
             </div>
         </div>
