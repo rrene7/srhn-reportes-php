@@ -1,5 +1,6 @@
 <?php
 /** @var ?array $funcionario */
+/** @var array $acciones */
 /** @var string $buscar */
 /** @var ?string $error */
 /** @var string $modulo */
@@ -112,9 +113,71 @@
     <?php endif; ?>
 </section>
 
+<?php if ($funcionario !== null): ?>
+    <section class="card">
+        <div class="card-header">
+            <div>
+                <h3>Acciones recientes</h3>
+                <p>Últimas acciones vinculadas al funcionario según la tabla de acciones disponible.</p>
+            </div>
+            <div class="toolbar no-print">
+                <a class="button-secondary" href="<?= e(url('/reportes/acciones/resultado?' . http_build_query(['buscar' => (($funcionario['nemp'] ?? '') !== '' ? $funcionario['nemp'] : ($funcionario['cedula'] ?? $buscar))]))) ?>">Ver todas las acciones</a>
+            </div>
+        </div>
+
+        <div class="table-wrapper">
+            <table class="report-table">
+                <thead>
+                    <tr>
+                        <th>Tipo acción</th>
+                        <th>Fecha acción</th>
+                        <th>Inicio / Fin</th>
+                        <th>Resolución / OGD</th>
+                        <th>Destino</th>
+                        <th>Detalle</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <?php if (empty($acciones)): ?>
+                        <tr>
+                            <td colspan="6" class="empty">No se encontraron acciones recientes para este funcionario.</td>
+                        </tr>
+                    <?php endif; ?>
+
+                    <?php foreach ($acciones as $accion): ?>
+                        <tr>
+                            <td>
+                                <strong><?= e($accion['action_type_id'] ?? '') ?></strong><br>
+                                <small><?= e($accion['tipo_accion'] ?? '') ?></small>
+                            </td>
+                            <td><?= e($accion['action_date'] ?? '') ?></td>
+                            <td>
+                                <?= e($accion['start_date'] ?? '') ?><br>
+                                <small><?= e($accion['end_date'] ?? '') ?></small>
+                            </td>
+                            <td>
+                                Res: <?= e($accion['resolution_number'] ?? '') ?><br>
+                                <small>OGD: <?= e($accion['ogd_number'] ?? '') ?></small>
+                            </td>
+                            <td>
+                                Pos: <?= e($accion['target_position'] ?? '') ?><br>
+                                <small><?= e($accion['rango_destino'] ?? '') ?> / <?= e($accion['unidad_destino'] ?? '') ?></small>
+                            </td>
+                            <td>
+                                <?= e($accion['notes'] ?? '') ?><br>
+                                <small><?= e($accion['migration_review_status'] ?? '') ?></small>
+                            </td>
+                        </tr>
+                    <?php endforeach; ?>
+                </tbody>
+            </table>
+        </div>
+    </section>
+<?php endif; ?>
+
 <section class="card muted no-print">
     <h3>Siguiente fase</h3>
     <p>
-        Esta ficha queda lista para ampliar con acciones, estudios, familia, direcciones, conducta, evaluación física y otros apartados identificados en el sistema legado.
+        Esta ficha queda lista para ampliar con estudios, familia, direcciones, conducta, evaluación física y otros apartados identificados en el sistema legado.
     </p>
 </section>
