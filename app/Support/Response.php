@@ -12,7 +12,7 @@ final class Response
         exit;
     }
 
-    public static function csv(string $filename, array $headers, array $rows): void
+    public static function csv(string $filename, array $headers, array $rows, string $delimiter = ';'): void
     {
         header('Content-Type: text/csv; charset=UTF-8');
         header('Content-Disposition: attachment; filename="' . $filename . '"');
@@ -22,10 +22,11 @@ final class Response
         $output = fopen('php://output', 'w');
 
         fprintf($output, chr(0xEF) . chr(0xBB) . chr(0xBF));
-        fputcsv($output, $headers);
+        fwrite($output, 'sep=' . $delimiter . PHP_EOL);
+        fputcsv($output, $headers, $delimiter);
 
         foreach ($rows as $row) {
-            fputcsv($output, $row);
+            fputcsv($output, $row, $delimiter);
         }
 
         fclose($output);
