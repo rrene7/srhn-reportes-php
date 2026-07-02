@@ -59,6 +59,8 @@ try {
         '/', '/reportes' => $controller->index(),
         '/reportes/por-rango' => $controller->porRango(),
         '/reportes/por-dependencia' => $controller->porDependencia(),
+        '/reportes/procedencia-oficiales' => $controller->procedenciaOficiales(),
+        '/reportes/procedencia-oficiales/exportar-csv' => $controller->exportarProcedenciaOficialesCsv(),
         '/reportes/acciones' => $controller->acciones(),
         '/reportes/acciones/resultado' => $controller->accionesResultado(),
         '/reportes/acciones/exportar-csv' => $controller->exportarAccionesCsv(),
