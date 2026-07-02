@@ -25,6 +25,12 @@
                 <small><?= e($item['descripcion']) ?></small>
             </a>
         <?php endforeach; ?>
+
+        <a class="report-card" href="<?= e(url('/reportes/opciones-multiples')) ?>">
+            <span class="module-status">DLL</span>
+            <strong>Reporte Opciones Múltiples</strong>
+            <small>Equivalente a Reportes Varios: filtros por rango, ubicación, sexo, estatus, tipo de policía y campos opcionales.</small>
+        </a>
     </div>
 </section>
 
