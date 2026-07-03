@@ -188,24 +188,20 @@ final class OpcionesMultiplesModel
         $where = ['1 = 1'];
         $params = [];
         $fechaCorte = $this->fechaCorte($filtros);
-        $reportePor = trim((string) ($filtros['reporte_por'] ?? 'ambos'));
-
-        $usarRango = in_array($reportePor, ['rango', 'ambos'], true);
-        $usarUbicacion = in_array($reportePor, ['ubicacion', 'ambos'], true);
 
         $rangoInicial = trim((string) ($filtros['rango_inicial'] ?? ''));
         $rangoFinal = trim((string) ($filtros['rango_final'] ?? ''));
-        if ($usarRango && $rangoInicial !== '') {
+        if ($rangoInicial !== '') {
             $where[] = 'CAST(COALESCE(r.legacy_code, 0) AS UNSIGNED) >= CAST(:rango_inicial AS UNSIGNED)';
             $params[':rango_inicial'] = $rangoInicial;
         }
-        if ($usarRango && $rangoFinal !== '') {
+        if ($rangoFinal !== '') {
             $where[] = 'CAST(COALESCE(r.legacy_code, 0) AS UNSIGNED) <= CAST(:rango_final AS UNSIGNED)';
             $params[':rango_final'] = $rangoFinal;
         }
 
         $unidad = trim((string) ($filtros['unidad'] ?? ''));
-        if ($usarUbicacion && $unidad !== '') {
+        if ($unidad !== '') {
             $where[] = 'COALESCE(u.legacy_code, \'\') = :unidad';
             $params[':unidad'] = $unidad;
         }
