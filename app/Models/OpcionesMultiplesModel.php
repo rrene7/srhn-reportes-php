@@ -107,6 +107,31 @@ final class OpcionesMultiplesModel
         return (int) $stmt->fetchColumn();
     }
 
+    public function resumenPorEstatus(array $filtros): array
+    {
+        [$where, $params] = $this->where($filtros);
+
+        $sql = "
+            SELECT
+                COALESCE(s.legacy_code, e.legacy_status_code, '') AS codigo,
+                COALESCE(s.name, e.external_user_status, e.external_agent_status, 'Sin estado') AS nombre,
+                COUNT(*) AS total
+            FROM employees e
+            LEFT JOIN ranks r ON r.id = e.rank_id
+            LEFT JOIN units u ON u.id = e.unit_id
+            LEFT JOIN statuses s ON s.id = e.status_id
+            WHERE {$where}
+            GROUP BY codigo, nombre
+            ORDER BY codigo ASC, nombre ASC
+        ";
+
+        $stmt = $this->db->prepare($sql);
+        $this->bindParams($stmt, $params);
+        $stmt->execute();
+
+        return $stmt->fetchAll();
+    }
+
     public function resumen(array $rows): array
     {
         $resumen = [
@@ -197,9 +222,7 @@ final class OpcionesMultiplesModel
             $params[':tipo_policia'] = $tipoPolicia;
         }
 
-        $estadoModo = array_key_exists('estado_modo', $_GET)
-            ? trim((string) ($_GET['estado_modo'] ?? 'todos'))
-            : 'todos';
+        $estadoModo = trim((string) ($filtros['estado_modo'] ?? 'todos'));
         $estado = trim((string) ($filtros['estado'] ?? ''));
         if ($estadoModo === 'activo') {
             $where[] = "(COALESCE(s.legacy_code, e.legacy_status_code, '') = '10' OR UPPER(COALESCE(s.name, e.external_user_status, e.external_agent_status, '')) = 'ACTIVO')";
