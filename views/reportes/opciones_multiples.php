@@ -10,6 +10,24 @@ $campos = $filtros['campos'] ?? [];
 if (!is_array($campos)) {
     $campos = [];
 }
+
+$totalesEstado = [];
+foreach ($rows as $row) {
+    $codigoEstado = (string) ($row['estado_codigo'] ?? '');
+    $nombreEstado = (string) ($row['estado_nombre'] ?? 'Sin estado');
+    $claveEstado = $codigoEstado . '|' . $nombreEstado;
+
+    if (!isset($totalesEstado[$claveEstado])) {
+        $totalesEstado[$claveEstado] = [
+            'codigo' => $codigoEstado,
+            'nombre' => $nombreEstado,
+            'total' => 0,
+        ];
+    }
+
+    $totalesEstado[$claveEstado]['total']++;
+}
+
 $queryExportar = http_build_query(array_merge($filtros, ['generar' => '1']));
 ?>
 
@@ -109,10 +127,11 @@ $queryExportar = http_build_query(array_merge($filtros, ['generar' => '1']));
         <div class="field">
             <label for="estado_modo">Estatus</label>
             <select name="estado_modo" id="estado_modo">
-                <option value="todos" <?= ($filtros['estado_modo'] ?? '') === 'todos' ? 'selected' : '' ?>>Todas</option>
-                <option value="activo" <?= ($filtros['estado_modo'] ?? 'activo') === 'activo' ? 'selected' : '' ?>>Activo</option>
+                <option value="todos" <?= ($filtros['estado_modo'] ?? 'todos') === 'todos' ? 'selected' : '' ?>>Todas</option>
+                <option value="activo" <?= ($filtros['estado_modo'] ?? '') === 'activo' ? 'selected' : '' ?>>Solo activo</option>
                 <option value="especifico" <?= ($filtros['estado_modo'] ?? '') === 'especifico' ? 'selected' : '' ?>>Mostrar específico</option>
             </select>
+            <small>Todas incluye activos y demás estatus administrativos.</small>
         </div>
 
         <div class="field">
@@ -224,6 +243,30 @@ $queryExportar = http_build_query(array_merge($filtros, ['generar' => '1']));
             <p>Otros estados: <strong><?= e($resumen['otros_estados'] ?? 0) ?></strong></p>
         </div>
     </div>
+
+    <?php if (!empty($totalesEstado)): ?>
+        <div class="table-wrapper">
+            <h3>Resumen por estatus visible</h3>
+            <table class="mini-table">
+                <thead>
+                    <tr>
+                        <th>Código</th>
+                        <th>Estatus</th>
+                        <th>Total visible</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <?php foreach ($totalesEstado as $estado): ?>
+                        <tr>
+                            <td><?= e($estado['codigo']) ?></td>
+                            <td><?= e($estado['nombre']) ?></td>
+                            <td><?= e($estado['total']) ?></td>
+                        </tr>
+                    <?php endforeach; ?>
+                </tbody>
+            </table>
+        </div>
+    <?php endif; ?>
 </section>
 
 <section class="card">
