@@ -4,6 +4,7 @@
 /** @var array $rows */
 /** @var ?int $total */
 /** @var array $resumen */
+/** @var array $resumenEstados */
 /** @var array $columnas */
 /** @var ?string $error */
 $campos = $filtros['campos'] ?? [];
@@ -11,23 +12,7 @@ if (!is_array($campos)) {
     $campos = [];
 }
 
-$totalesEstado = [];
-foreach ($rows as $row) {
-    $codigoEstado = (string) ($row['estado_codigo'] ?? '');
-    $nombreEstado = (string) ($row['estado_nombre'] ?? 'Sin estado');
-    $claveEstado = $codigoEstado . '|' . $nombreEstado;
-
-    if (!isset($totalesEstado[$claveEstado])) {
-        $totalesEstado[$claveEstado] = [
-            'codigo' => $codigoEstado,
-            'nombre' => $nombreEstado,
-            'total' => 0,
-        ];
-    }
-
-    $totalesEstado[$claveEstado]['total']++;
-}
-
+$totalesEstado = $resumenEstados ?? [];
 $queryExportar = http_build_query(array_merge($filtros, ['generar' => '1']));
 ?>
 
@@ -246,13 +231,13 @@ $queryExportar = http_build_query(array_merge($filtros, ['generar' => '1']));
 
     <?php if (!empty($totalesEstado)): ?>
         <div class="table-wrapper">
-            <h3>Resumen por estatus visible</h3>
+            <h3>Resumen total por estatus</h3>
             <table class="mini-table">
                 <thead>
                     <tr>
                         <th>Código</th>
                         <th>Estatus</th>
-                        <th>Total visible</th>
+                        <th>Total real</th>
                     </tr>
                 </thead>
                 <tbody>
