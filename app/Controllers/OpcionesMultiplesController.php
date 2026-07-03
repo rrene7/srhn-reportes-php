@@ -25,6 +25,7 @@ final class OpcionesMultiplesController
         $rows = [];
         $total = null;
         $resumen = ['total' => 0, 'masculino' => 0, 'femenino' => 0, 'activos' => 0, 'otros_estados' => 0];
+        $resumenEstados = [];
         $error = null;
 
         if ($this->debeGenerar()) {
@@ -32,6 +33,7 @@ final class OpcionesMultiplesController
                 $rows = $this->model->buscar($filtros, 500);
                 $total = $this->model->contar($filtros);
                 $resumen = $this->model->resumen($rows);
+                $resumenEstados = $this->model->resumenPorEstatus($filtros);
             } catch (Throwable $e) {
                 $error = $e->getMessage();
             }
@@ -44,6 +46,7 @@ final class OpcionesMultiplesController
             'rows' => $rows,
             'total' => $total,
             'resumen' => $resumen,
+            'resumenEstados' => $resumenEstados,
             'columnas' => $this->model->columnas($filtros['campos'] ?? []),
             'error' => $error,
         ]);
