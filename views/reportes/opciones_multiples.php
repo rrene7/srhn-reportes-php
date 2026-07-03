@@ -13,6 +13,10 @@ if (!is_array($campos)) {
 }
 
 $totalesEstado = $resumenEstados ?? [];
+$filtrosTodos = array_merge($filtros, ['generar' => '1', 'estado_modo' => 'todos', 'estado' => '']);
+$filtrosActivos = array_merge($filtros, ['generar' => '1', 'estado_modo' => 'activo', 'estado' => '']);
+$queryTodosEstatus = http_build_query($filtrosTodos);
+$querySoloActivos = http_build_query($filtrosActivos);
 $queryExportar = http_build_query(array_merge($filtros, ['generar' => '1']));
 ?>
 
@@ -109,7 +113,7 @@ $queryExportar = http_build_query(array_merge($filtros, ['generar' => '1']));
             </select>
         </div>
 
-        <div class="field">
+        <div class="field field-wide">
             <label for="estado_modo">Estatus</label>
             <select name="estado_modo" id="estado_modo">
                 <option value="todos" <?= ($filtros['estado_modo'] ?? 'todos') === 'todos' ? 'selected' : '' ?>>Todas</option>
@@ -117,6 +121,10 @@ $queryExportar = http_build_query(array_merge($filtros, ['generar' => '1']));
                 <option value="especifico" <?= ($filtros['estado_modo'] ?? '') === 'especifico' ? 'selected' : '' ?>>Mostrar específico</option>
             </select>
             <small>Todas incluye activos y demás estatus administrativos.</small>
+            <div class="toolbar quick-actions">
+                <a class="button-secondary" href="<?= e(url('/reportes/opciones-multiples?' . $queryTodosEstatus)) ?>">Ver todos los estatus</a>
+                <a class="button-secondary" href="<?= e(url('/reportes/opciones-multiples?' . $querySoloActivos)) ?>">Ver solo activos</a>
+            </div>
         </div>
 
         <div class="field">
