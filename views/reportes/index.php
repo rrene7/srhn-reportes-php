@@ -26,6 +26,12 @@
             </a>
         <?php endforeach; ?>
 
+        <a class="report-card" href="<?= e(url('/reportes/estudios-generales')) ?>">
+            <span class="module-status">DLL</span>
+            <strong>Estudios Generales</strong>
+            <small>Equivalente a Estudios Realizados: consulta estudios por funcionario, carrera, institución y fechas.</small>
+        </a>
+
         <a class="report-card" href="<?= e(url('/reportes/opciones-multiples')) ?>">
             <span class="module-status">DLL</span>
             <strong>Reporte Opciones Múltiples</strong>
