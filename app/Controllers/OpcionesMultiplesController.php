@@ -86,7 +86,7 @@ final class OpcionesMultiplesController
             'unidad' => trim((string) ($_GET['unidad'] ?? '')),
             'sexo' => trim((string) ($_GET['sexo'] ?? 'A')),
             'tipo_policia' => trim((string) ($_GET['tipo_policia'] ?? 'todos')),
-            'estado_modo' => trim((string) ($_GET['estado_modo'] ?? 'activo')),
+            'estado_modo' => trim((string) ($_GET['estado_modo'] ?? 'todos')),
             'estado' => trim((string) ($_GET['estado'] ?? '')),
             'fecha_modo' => trim((string) ($_GET['fecha_modo'] ?? 'actual')),
             'fecha_corte' => trim((string) ($_GET['fecha_corte'] ?? '')),
