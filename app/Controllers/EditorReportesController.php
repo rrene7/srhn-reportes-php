@@ -67,12 +67,13 @@ final class EditorReportesController
     {
         $columnas = $_GET['columnas'] ?? [];
         if (!is_array($columnas)) {
-            $columnas = [(string) $columnas];
+            $columnasTexto = trim((string) $columnas);
+            $columnas = $columnasTexto !== '' ? explode(',', $columnasTexto) : [];
         }
 
         return [
             'fuente' => trim((string) ($_GET['fuente'] ?? 'personal')),
-            'columnas' => array_values(array_filter(array_map('strval', $columnas))),
+            'columnas' => array_values(array_filter(array_map(static fn (string $columna): string => trim($columna), array_map('strval', $columnas)))),
             'rango_desde' => trim((string) ($_GET['rango_desde'] ?? '')),
             'rango_hasta' => trim((string) ($_GET['rango_hasta'] ?? '')),
             'unidad' => trim((string) ($_GET['unidad'] ?? '')),
