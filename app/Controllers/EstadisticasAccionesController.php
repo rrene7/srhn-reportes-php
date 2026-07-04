@@ -35,6 +35,11 @@ final class EstadisticasAccionesController
             return;
         }
 
+        if ($vista === 'rango-mes') {
+            $this->rangoMes();
+            return;
+        }
+
         $filtros = $this->filtrosDesdeRequest();
         $estadisticas = ['total' => 0, 'porMes' => [], 'porTipo' => []];
         $error = null;
@@ -109,6 +114,31 @@ final class EstadisticasAccionesController
         ]);
     }
 
+    public function rangoMes(): void
+    {
+        $filtros = $this->filtrosDesdeRequest();
+        $estadisticas = ['total' => 0, 'porRangoMes' => [], 'porTipo' => []];
+        $error = null;
+
+        try {
+            $estadisticas = [
+                'total' => $this->model->total($filtros),
+                'porRangoMes' => $this->model->porRangoMes($filtros),
+                'porTipo' => $this->model->porTipo($filtros),
+            ];
+        } catch (Throwable $e) {
+            $error = $e->getMessage();
+        }
+
+        View::render('reportes/estadisticas_acciones_rango_mes', [
+            'title' => 'Estadísticas de acciones por rango y mes',
+            'filtros' => $filtros,
+            'tiposAccion' => $this->model->tiposAccion(),
+            'estadisticas' => $estadisticas,
+            'error' => $error,
+        ]);
+    }
+
     public function exportarCsv(): void
     {
         $vista = trim((string) ($_GET['vista'] ?? 'mes'));
@@ -119,6 +149,11 @@ final class EstadisticasAccionesController
 
         if ($vista === 'sanciones') {
             $this->exportarSancionesCsv();
+            return;
+        }
+
+        if ($vista === 'rango-mes') {
+            $this->exportarRangoMesCsv();
             return;
         }
 
@@ -169,6 +204,25 @@ final class EstadisticasAccionesController
         }
 
         Response::csv('srhn-estadisticas-sanciones.csv', ['Año', 'Mes', 'Tipo de acción', 'Total'], $rows);
+    }
+
+    public function exportarRangoMesCsv(): void
+    {
+        $filtros = $this->filtrosDesdeRequest();
+        $rows = [];
+
+        foreach ($this->model->porRangoMes($filtros) as $row) {
+            $rows[] = [
+                $row['anio'] ?? '',
+                $row['mes_numero'] ?? '',
+                $row['codigo_rango'] ?? '',
+                $row['rango'] ?? '',
+                $row['tipo_accion'] ?? '',
+                $row['total'] ?? '',
+            ];
+        }
+
+        Response::csv('srhn-estadisticas-acciones-rango-mes.csv', ['Año', 'Mes', 'Código rango', 'Rango', 'Tipo de acción', 'Total'], $rows);
     }
 
     private function filtrosDesdeRequest(): array
