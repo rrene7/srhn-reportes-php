@@ -88,8 +88,15 @@ final class EstadisticasPersonalModel
 
         $unidad = trim((string) ($filtros['unidad'] ?? ''));
         if ($unidad !== '') {
-            $where[] = "COALESCE(u.legacy_code, '') = :unidad";
-            $params[':unidad'] = $unidad;
+            $unidadBase = rtrim($unidad, '0');
+            if ($unidadBase !== '' && $unidadBase !== $unidad && strlen($unidadBase) >= 4) {
+                $where[] = "(COALESCE(u.legacy_code, '') = :unidad OR COALESCE(u.legacy_code, '') LIKE :unidad_prefijo)";
+                $params[':unidad'] = $unidad;
+                $params[':unidad_prefijo'] = $unidadBase . '%';
+            } else {
+                $where[] = "COALESCE(u.legacy_code, '') = :unidad";
+                $params[':unidad'] = $unidad;
+            }
         }
 
         $sexo = strtoupper(trim((string) ($filtros['sexo'] ?? 'A')));
