@@ -69,21 +69,13 @@ final class EstadisticasPersonalModel
 
         $rangoDesde = trim((string) ($filtros['rango_desde'] ?? ''));
         $rangoHasta = trim((string) ($filtros['rango_hasta'] ?? ''));
-        if ($rangoDesde !== '' && $rangoHasta === '') {
-            $where[] = 'CAST(COALESCE(r.legacy_code, 0) AS UNSIGNED) = CAST(:rango_desde AS UNSIGNED)';
+        if ($rangoDesde !== '') {
+            $where[] = 'CAST(COALESCE(r.legacy_code, 0) AS UNSIGNED) >= CAST(:rango_desde AS UNSIGNED)';
             $params[':rango_desde'] = $rangoDesde;
-        } elseif ($rangoDesde === '' && $rangoHasta !== '') {
-            $where[] = 'CAST(COALESCE(r.legacy_code, 0) AS UNSIGNED) = CAST(:rango_hasta AS UNSIGNED)';
+        }
+        if ($rangoHasta !== '') {
+            $where[] = 'CAST(COALESCE(r.legacy_code, 0) AS UNSIGNED) <= CAST(:rango_hasta AS UNSIGNED)';
             $params[':rango_hasta'] = $rangoHasta;
-        } else {
-            if ($rangoDesde !== '') {
-                $where[] = 'CAST(COALESCE(r.legacy_code, 0) AS UNSIGNED) >= CAST(:rango_desde AS UNSIGNED)';
-                $params[':rango_desde'] = $rangoDesde;
-            }
-            if ($rangoHasta !== '') {
-                $where[] = 'CAST(COALESCE(r.legacy_code, 0) AS UNSIGNED) <= CAST(:rango_hasta AS UNSIGNED)';
-                $params[':rango_hasta'] = $rangoHasta;
-            }
         }
 
         $unidad = trim((string) ($filtros['unidad'] ?? ''));
