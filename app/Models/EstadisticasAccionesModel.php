@@ -104,6 +104,33 @@ final class EstadisticasAccionesModel
         return $stmt->fetchAll();
     }
 
+    public function porRangoMes(array $filtros): array
+    {
+        [$where, $params] = $this->where($filtros);
+        $sql = "
+            SELECT
+                YEAR(a.action_date) AS anio,
+                MONTH(a.action_date) AS mes,
+                LPAD(MONTH(a.action_date), 2, '0') AS mes_numero,
+                COALESCE(rt.legacy_code, NULLIF(a.legacy_rank_or_charge_code, ''), '') AS codigo_rango,
+                COALESCE(rt.name, CONCAT('Rango ', NULLIF(a.legacy_rank_or_charge_code, '')), 'Sin rango') AS rango,
+                COALESCE(at.name, CONCAT('Tipo ', a.action_type_id)) AS tipo_accion,
+                COUNT(*) AS total
+            FROM employee_actions a
+            LEFT JOIN action_types at ON at.id = a.action_type_id
+            LEFT JOIN ranks rt ON rt.id = a.target_rank_id
+            WHERE {$where}
+            GROUP BY anio, mes, mes_numero, codigo_rango, rango, tipo_accion
+            ORDER BY anio DESC, mes DESC, CAST(codigo_rango AS UNSIGNED) ASC, rango ASC, tipo_accion ASC
+        ";
+
+        $stmt = $this->db->prepare($sql);
+        $this->bindParams($stmt, $params);
+        $stmt->execute();
+
+        return $stmt->fetchAll();
+    }
+
     public function porTipo(array $filtros): array
     {
         [$where, $params] = $this->where($filtros);
