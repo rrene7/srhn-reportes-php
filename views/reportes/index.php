@@ -32,6 +32,12 @@
             <small>Equivalente a Estudios Realizados: consulta estudios por funcionario, carrera, institución y fechas.</small>
         </a>
 
+        <a class="report-card" href="<?= e(url('/reportes/estado-fuerza')) ?>">
+            <span class="module-status">DLL</span>
+            <strong>Estado de Fuerza</strong>
+            <small>Equivalente a Estadísticas: resume personal por rango, dependencia, sexo y estatus.</small>
+        </a>
+
         <a class="report-card" href="<?= e(url('/reportes/opciones-multiples')) ?>">
             <span class="module-status">DLL</span>
             <strong>Reporte Opciones Múltiples</strong>
