@@ -8,6 +8,7 @@ use App\Models\EstadisticasAccionesModel;
 use App\Support\Database;
 use App\Support\Response;
 use App\Support\View;
+use DateTimeImmutable;
 use Throwable;
 
 final class EstadisticasAccionesController
@@ -65,8 +66,26 @@ final class EstadisticasAccionesController
     {
         return [
             'tipo' => trim((string) ($_GET['tipo'] ?? '')),
-            'fecha_desde' => trim((string) ($_GET['fecha_desde'] ?? '')),
-            'fecha_hasta' => trim((string) ($_GET['fecha_hasta'] ?? '')),
+            'fecha_desde' => $this->normalizarFecha(trim((string) ($_GET['fecha_desde'] ?? ''))),
+            'fecha_hasta' => $this->normalizarFecha(trim((string) ($_GET['fecha_hasta'] ?? ''))),
         ];
+    }
+
+    private function normalizarFecha(string $fecha): string
+    {
+        if ($fecha === '') {
+            return '';
+        }
+
+        if (preg_match('/^\d{4}-\d{2}-\d{2}$/', $fecha)) {
+            return $fecha;
+        }
+
+        if (preg_match('/^\d{2}\/\d{2}\/\d{4}$/', $fecha)) {
+            $date = DateTimeImmutable::createFromFormat('d/m/Y', $fecha);
+            return $date instanceof DateTimeImmutable ? $date->format('Y-m-d') : '';
+        }
+
+        return '';
     }
 }
