@@ -22,6 +22,12 @@ final class EstadisticasAccionesController
 
     public function index(): void
     {
+        $vista = trim((string) ($_GET['vista'] ?? 'mes'));
+        if ($vista === 'anios') {
+            $this->anios();
+            return;
+        }
+
         $filtros = $this->filtrosDesdeRequest();
         $estadisticas = ['total' => 0, 'porMes' => [], 'porTipo' => []];
         $error = null;
@@ -72,6 +78,12 @@ final class EstadisticasAccionesController
 
     public function exportarCsv(): void
     {
+        $vista = trim((string) ($_GET['vista'] ?? 'mes'));
+        if ($vista === 'anios') {
+            $this->exportarAniosCsv();
+            return;
+        }
+
         $filtros = $this->filtrosDesdeRequest();
         $rows = [];
 
