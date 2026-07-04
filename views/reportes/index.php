@@ -41,13 +41,19 @@
         <a class="report-card" href="<?= e(url('/reportes/estadisticas-acciones')) ?>">
             <span class="module-status">DLL</span>
             <strong>Estadísticas de acciones</strong>
-            <small>Equivalente a EST.ACC.: desglose mensual de acciones por tipo.</small>
+            <small>Equivalente a EST.ACC.: desglose mensual, anual, sanciones y rango por mes.</small>
         </a>
 
         <a class="report-card" href="<?= e(url('/reportes/opciones-multiples')) ?>">
             <span class="module-status">DLL</span>
             <strong>Reporte Opciones Múltiples</strong>
             <small>Equivalente a Reportes Varios: filtros por rango, ubicación, sexo, estatus, tipo de policía y campos opcionales.</small>
+        </a>
+
+        <a class="report-card" href="<?= e(url('/reportes/hoja-vida')) ?>">
+            <span class="module-status">DLL</span>
+            <strong>Hoja de Vida para la placa</strong>
+            <small>Consulta imprimible del funcionario con datos generales, acciones y secciones complementarias.</small>
         </a>
     </div>
 </section>
@@ -68,7 +74,7 @@
 
     <?php if ($modulo === 'acciones'): ?>
         <div class="alert alert-info">
-            Este reporte queda como módulo pendiente. El siguiente paso será mapear las tablas de acciones del DLL contra la base actual para listar ascensos, traslados, vacaciones, licencias, sanciones y novedades.
+            Este reporte cubre la Lista de Acciones completa del DLL: ascensos, traslados, vacaciones, licencias, sanciones, incapacidades, nombramientos y novedades.
         </div>
     <?php endif; ?>
 
