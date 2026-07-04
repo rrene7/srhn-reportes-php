@@ -14,16 +14,16 @@ $tiposAccion = $catalogos['tiposAccion'] ?? [];
 
 function editorReporteQueryLimpio(array $filtros, array $columnasSeleccionadas, string $fuenteActualCodigo): string
 {
-    $query = [
-        'fuente' => $fuenteActualCodigo,
-        'columnas' => implode(',', $columnasSeleccionadas),
-        'generar' => '1',
+    $parts = [
+        'fuente=' . rawurlencode($fuenteActualCodigo),
+        'columnas=' . implode(',', array_map('rawurlencode', $columnasSeleccionadas)),
+        'generar=1',
     ];
 
     foreach (['rango_desde', 'rango_hasta', 'unidad', 'sexo', 'estado_modo', 'estado', 'buscar'] as $campo) {
         $valor = trim((string) ($filtros[$campo] ?? ''));
         if ($valor !== '' && !($campo === 'sexo' && $valor === 'A')) {
-            $query[$campo] = $valor;
+            $parts[] = rawurlencode($campo) . '=' . rawurlencode($valor);
         }
     }
 
@@ -31,16 +31,17 @@ function editorReporteQueryLimpio(array $filtros, array $columnasSeleccionadas, 
         foreach (['tipo_accion', 'fecha_desde', 'fecha_hasta'] as $campo) {
             $valor = trim((string) ($filtros[$campo] ?? ''));
             if ($valor !== '') {
-                $query[$campo] = $valor;
+                $parts[] = rawurlencode($campo) . '=' . rawurlencode($valor);
             }
         }
     }
 
-    return http_build_query($query, '', '&', PHP_QUERY_RFC3986);
+    return implode('&', $parts);
 }
 
 $queryPlantilla = editorReporteQueryLimpio($filtros, $columnasSeleccionadas, $fuenteActualCodigo);
 $queryExportar = $queryPlantilla;
+$sinDatos = $resultado !== null && empty($resultado['rows'] ?? []);
 ?>
 
 <section class="card no-print">
@@ -71,6 +72,15 @@ $queryExportar = $queryPlantilla;
 
     <?php if (!empty($error)): ?>
         <div class="alert alert-error"><?= e($error) ?></div>
+    <?php endif; ?>
+
+    <?php if ($sinDatos): ?>
+        <div class="alert alert-info">
+            No salieron datos con la combinación actual. Prueba primero quitando la dependencia o cambiando el estatus a “Todos”.
+            <?php if (!empty($filtros['unidad'])): ?>
+                La dependencia seleccionada <strong><?= e($filtros['unidad']) ?></strong> puede estar dejando el resultado en cero.
+            <?php endif; ?>
+        </div>
     <?php endif; ?>
 
     <form method="get" action="<?= e(url('/reportes/editor')) ?>" class="filters no-print">
