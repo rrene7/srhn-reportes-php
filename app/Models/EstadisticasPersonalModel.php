@@ -33,7 +33,7 @@ final class EstadisticasPersonalModel
 
     public function porRango(array $filtros): array
     {
-        return $this->agrupar($filtros, "COALESCE(r.legacy_code, '')", "COALESCE(r.name, e.legacy_rank_name, 'Sin rango')", 'r.sort_order ASC, codigo ASC');
+        return $this->agrupar($filtros, "COALESCE(r.legacy_code, '')", "COALESCE(r.name, e.legacy_rank_name, 'Sin rango')", 'codigo ASC');
     }
 
     public function porDependencia(array $filtros): array
@@ -69,13 +69,21 @@ final class EstadisticasPersonalModel
 
         $rangoDesde = trim((string) ($filtros['rango_desde'] ?? ''));
         $rangoHasta = trim((string) ($filtros['rango_hasta'] ?? ''));
-        if ($rangoDesde !== '') {
-            $where[] = 'CAST(COALESCE(r.legacy_code, 0) AS UNSIGNED) >= CAST(:rango_desde AS UNSIGNED)';
+        if ($rangoDesde !== '' && $rangoHasta === '') {
+            $where[] = 'CAST(COALESCE(r.legacy_code, 0) AS UNSIGNED) = CAST(:rango_desde AS UNSIGNED)';
             $params[':rango_desde'] = $rangoDesde;
-        }
-        if ($rangoHasta !== '') {
-            $where[] = 'CAST(COALESCE(r.legacy_code, 0) AS UNSIGNED) <= CAST(:rango_hasta AS UNSIGNED)';
+        } elseif ($rangoDesde === '' && $rangoHasta !== '') {
+            $where[] = 'CAST(COALESCE(r.legacy_code, 0) AS UNSIGNED) = CAST(:rango_hasta AS UNSIGNED)';
             $params[':rango_hasta'] = $rangoHasta;
+        } else {
+            if ($rangoDesde !== '') {
+                $where[] = 'CAST(COALESCE(r.legacy_code, 0) AS UNSIGNED) >= CAST(:rango_desde AS UNSIGNED)';
+                $params[':rango_desde'] = $rangoDesde;
+            }
+            if ($rangoHasta !== '') {
+                $where[] = 'CAST(COALESCE(r.legacy_code, 0) AS UNSIGNED) <= CAST(:rango_hasta AS UNSIGNED)';
+                $params[':rango_hasta'] = $rangoHasta;
+            }
         }
 
         $unidad = trim((string) ($filtros['unidad'] ?? ''));
