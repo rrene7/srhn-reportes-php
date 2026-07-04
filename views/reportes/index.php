@@ -38,6 +38,12 @@
             <small>Equivalente a Estadísticas: resume personal por rango, dependencia, sexo y estatus.</small>
         </a>
 
+        <a class="report-card" href="<?= e(url('/reportes/operativos')) ?>">
+            <span class="module-status">DLL</span>
+            <strong>OPERATIVOS</strong>
+            <small>Resumen operativo por rango, dependencia, sexo, estatus, tipo de policía y listado exportable.</small>
+        </a>
+
         <a class="report-card" href="<?= e(url('/reportes/estadisticas-acciones')) ?>">
             <span class="module-status">DLL</span>
             <strong>Estadísticas de acciones</strong>
