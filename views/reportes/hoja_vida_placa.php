@@ -33,7 +33,7 @@ $nombreCompleto = $funcionario !== null ? trim((string) (($funcionario['nombre']
         <?php if ($funcionario !== null): ?>
             <div class="toolbar">
                 <button onclick="window.print()">Imprimir</button>
-                <a class="button-secondary" href="<?= e(url('/reportes/hoja-vida-placa/exportar-csv?' . $queryExportar)) ?>">Exportar CSV</a>
+                <a class="button-secondary" href="<?= e(url('/reportes/hoja-vida/exportar-csv?' . $queryExportar)) ?>">Exportar CSV</a>
             </div>
         <?php endif; ?>
     </div>
@@ -42,14 +42,14 @@ $nombreCompleto = $funcionario !== null ? trim((string) (($funcionario['nombre']
         <div class="alert alert-error"><?= e($error) ?></div>
     <?php endif; ?>
 
-    <form method="get" action="<?= e(url('/reportes/hoja-vida-placa')) ?>" class="filters">
+    <form method="get" action="<?= e(url('/reportes/hoja-vida')) ?>" class="filters">
         <div class="field field-wide">
             <label for="buscar">Buscar</label>
             <input type="text" name="buscar" id="buscar" value="<?= e($buscar) ?>" placeholder="Ejemplo: cédula, posición o apellido">
         </div>
         <div class="actions">
             <button type="submit">Generar hoja de vida</button>
-            <a class="button-secondary" href="<?= e(url('/reportes/hoja-vida-placa')) ?>">Limpiar</a>
+            <a class="button-secondary" href="<?= e(url('/reportes/hoja-vida')) ?>">Limpiar</a>
         </div>
     </form>
 </section>
