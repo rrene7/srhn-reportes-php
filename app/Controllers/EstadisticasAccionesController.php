@@ -23,12 +23,12 @@ final class EstadisticasAccionesController
     public function index(): void
     {
         $filtros = $this->filtrosDesdeRequest();
-        $data = ['total' => 0, 'porMes' => [], 'porTipo' => []];
+        $estadisticas = ['total' => 0, 'porMes' => [], 'porTipo' => []];
         $diagnostico = [];
         $error = null;
 
         try {
-            $data = [
+            $estadisticas = [
                 'total' => $this->model->total($filtros),
                 'porMes' => $this->model->porMes($filtros),
                 'porTipo' => $this->model->porTipo($filtros),
@@ -42,7 +42,7 @@ final class EstadisticasAccionesController
             'title' => 'Estadísticas de acciones por mes',
             'filtros' => $filtros,
             'tiposAccion' => $this->model->tiposAccion(),
-            'data' => $data,
+            'estadisticas' => $estadisticas,
             'diagnostico' => $diagnostico,
             'error' => $error,
         ]);
