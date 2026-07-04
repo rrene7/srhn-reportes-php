@@ -21,8 +21,7 @@ final class EstadisticasAccionesModel
     public function total(array $filtros): int
     {
         [$where, $params] = $this->where($filtros);
-        $fecha = $this->fechaSql();
-        $sql = "SELECT COUNT(*) FROM employee_actions a LEFT JOIN action_types at ON at.id = a.action_type_id WHERE {$where} AND {$fecha} IS NOT NULL";
+        $sql = "SELECT COUNT(*) FROM employee_actions a LEFT JOIN action_types at ON at.id = a.action_type_id WHERE {$where}";
         $stmt = $this->db->prepare($sql);
         $this->bindParams($stmt, $params);
         $stmt->execute();
@@ -33,18 +32,16 @@ final class EstadisticasAccionesModel
     public function porMes(array $filtros): array
     {
         [$where, $params] = $this->where($filtros);
-        $fecha = $this->fechaSql();
         $sql = "
             SELECT
-                YEAR({$fecha}) AS anio,
-                MONTH({$fecha}) AS mes,
-                LPAD(MONTH({$fecha}), 2, '0') AS mes_numero,
+                YEAR(a.action_date) AS anio,
+                MONTH(a.action_date) AS mes,
+                LPAD(MONTH(a.action_date), 2, '0') AS mes_numero,
                 COALESCE(at.name, CONCAT('Tipo ', a.action_type_id)) AS tipo_accion,
                 COUNT(*) AS total
             FROM employee_actions a
             LEFT JOIN action_types at ON at.id = a.action_type_id
             WHERE {$where}
-              AND {$fecha} IS NOT NULL
             GROUP BY anio, mes, mes_numero, tipo_accion
             ORDER BY anio DESC, mes DESC, tipo_accion ASC
         ";
@@ -59,7 +56,6 @@ final class EstadisticasAccionesModel
     public function porTipo(array $filtros): array
     {
         [$where, $params] = $this->where($filtros);
-        $fecha = $this->fechaSql();
         $sql = "
             SELECT
                 COALESCE(a.action_type_id, 0) AS codigo,
@@ -68,7 +64,6 @@ final class EstadisticasAccionesModel
             FROM employee_actions a
             LEFT JOIN action_types at ON at.id = a.action_type_id
             WHERE {$where}
-              AND {$fecha} IS NOT NULL
             GROUP BY codigo, tipo_accion
             ORDER BY total DESC, tipo_accion ASC
         ";
@@ -82,9 +77,8 @@ final class EstadisticasAccionesModel
 
     private function where(array $filtros): array
     {
-        $where = ['1 = 1'];
+        $where = ['a.action_date IS NOT NULL'];
         $params = [];
-        $fecha = $this->fechaSql();
 
         $tipo = trim((string) ($filtros['tipo'] ?? ''));
         if ($tipo !== '') {
@@ -94,22 +88,17 @@ final class EstadisticasAccionesModel
 
         $fechaDesde = trim((string) ($filtros['fecha_desde'] ?? ''));
         if (preg_match('/^\d{4}-\d{2}-\d{2}$/', $fechaDesde)) {
-            $where[] = $fecha . ' >= :fecha_desde';
+            $where[] = 'a.action_date >= :fecha_desde';
             $params[':fecha_desde'] = $fechaDesde;
         }
 
         $fechaHasta = trim((string) ($filtros['fecha_hasta'] ?? ''));
         if (preg_match('/^\d{4}-\d{2}-\d{2}$/', $fechaHasta)) {
-            $where[] = $fecha . ' <= :fecha_hasta';
+            $where[] = 'a.action_date <= :fecha_hasta';
             $params[':fecha_hasta'] = $fechaHasta;
         }
 
         return [implode(' AND ', $where), $params];
-    }
-
-    private function fechaSql(): string
-    {
-        return 'COALESCE(a.action_date, a.resolution_date, DATE(a.created_at))';
     }
 
     private function bindParams(PDOStatement $stmt, array $params): void
