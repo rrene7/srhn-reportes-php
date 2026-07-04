@@ -44,6 +44,12 @@
             <small>Resumen operativo por rango, dependencia, sexo, estatus, tipo de policía y listado exportable.</small>
         </a>
 
+        <a class="report-card" href="<?= e(url('/reportes/editor')) ?>">
+            <span class="module-status">DLL</span>
+            <strong>EDITOR DE REP</strong>
+            <small>Constructor avanzado: selecciona origen, columnas, filtros, vista previa, plantilla URL y CSV.</small>
+        </a>
+
         <a class="report-card" href="<?= e(url('/reportes/estadisticas-acciones')) ?>">
             <span class="module-status">DLL</span>
             <strong>Estadísticas de acciones</strong>
