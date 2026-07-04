@@ -17,6 +17,9 @@ $queryExportar = http_build_query($filtros);
         </div>
         <div class="toolbar">
             <a class="button-secondary" href="<?= e(url('/reportes')) ?>">Volver a reportes</a>
+            <a class="button-secondary" href="<?= e(url('/reportes/estadisticas-acciones?vista=anios')) ?>">Por año</a>
+            <a class="button-secondary" href="<?= e(url('/reportes/estadisticas-acciones?vista=sanciones')) ?>">Sanciones</a>
+            <a class="button-secondary" href="<?= e(url('/reportes/estadisticas-acciones?vista=rango-mes')) ?>">Rango por mes</a>
         </div>
     </div>
 </section>
