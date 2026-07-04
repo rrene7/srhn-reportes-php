@@ -24,7 +24,6 @@ final class EstadisticasAccionesController
     {
         $filtros = $this->filtrosDesdeRequest();
         $estadisticas = ['total' => 0, 'porMes' => [], 'porTipo' => []];
-        $diagnostico = [];
         $error = null;
 
         try {
@@ -33,7 +32,6 @@ final class EstadisticasAccionesController
                 'porMes' => $this->model->porMes($filtros),
                 'porTipo' => $this->model->porTipo($filtros),
             ];
-            $diagnostico = $this->model->diagnostico($filtros);
         } catch (Throwable $e) {
             $error = $e->getMessage();
         }
@@ -43,7 +41,31 @@ final class EstadisticasAccionesController
             'filtros' => $filtros,
             'tiposAccion' => $this->model->tiposAccion(),
             'estadisticas' => $estadisticas,
-            'diagnostico' => $diagnostico,
+            'error' => $error,
+        ]);
+    }
+
+    public function anios(): void
+    {
+        $filtros = $this->filtrosDesdeRequest();
+        $estadisticas = ['total' => 0, 'porAnio' => [], 'porTipo' => []];
+        $error = null;
+
+        try {
+            $estadisticas = [
+                'total' => $this->model->total($filtros),
+                'porAnio' => $this->model->porAnio($filtros),
+                'porTipo' => $this->model->porTipo($filtros),
+            ];
+        } catch (Throwable $e) {
+            $error = $e->getMessage();
+        }
+
+        View::render('reportes/estadisticas_acciones_anios', [
+            'title' => 'Estadísticas de acciones por año',
+            'filtros' => $filtros,
+            'tiposAccion' => $this->model->tiposAccion(),
+            'estadisticas' => $estadisticas,
             'error' => $error,
         ]);
     }
@@ -63,6 +85,22 @@ final class EstadisticasAccionesController
         }
 
         Response::csv('srhn-estadisticas-acciones-mes.csv', ['Año', 'Mes', 'Tipo de acción', 'Total'], $rows);
+    }
+
+    public function exportarAniosCsv(): void
+    {
+        $filtros = $this->filtrosDesdeRequest();
+        $rows = [];
+
+        foreach ($this->model->porAnio($filtros) as $row) {
+            $rows[] = [
+                $row['anio'] ?? '',
+                $row['tipo_accion'] ?? '',
+                $row['total'] ?? '',
+            ];
+        }
+
+        Response::csv('srhn-estadisticas-acciones-anios.csv', ['Año', 'Tipo de acción', 'Total'], $rows);
     }
 
     private function filtrosDesdeRequest(): array
