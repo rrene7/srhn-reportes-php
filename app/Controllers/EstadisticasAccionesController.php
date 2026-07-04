@@ -13,6 +13,8 @@ use Throwable;
 
 final class EstadisticasAccionesController
 {
+    private const TIPO_SANCIONES = '19';
+
     private EstadisticasAccionesModel $model;
 
     public function __construct()
@@ -25,6 +27,11 @@ final class EstadisticasAccionesController
         $vista = trim((string) ($_GET['vista'] ?? 'mes'));
         if ($vista === 'anios') {
             $this->anios();
+            return;
+        }
+
+        if ($vista === 'sanciones') {
+            $this->sanciones();
             return;
         }
 
@@ -76,11 +83,42 @@ final class EstadisticasAccionesController
         ]);
     }
 
+    public function sanciones(): void
+    {
+        $filtros = $this->filtrosDesdeRequest();
+        $filtros['tipo'] = self::TIPO_SANCIONES;
+        $estadisticas = ['total' => 0, 'porMes' => [], 'porAnio' => [], 'porTipo' => []];
+        $error = null;
+
+        try {
+            $estadisticas = [
+                'total' => $this->model->total($filtros),
+                'porMes' => $this->model->porMes($filtros),
+                'porAnio' => $this->model->porAnio($filtros),
+                'porTipo' => $this->model->porTipo($filtros),
+            ];
+        } catch (Throwable $e) {
+            $error = $e->getMessage();
+        }
+
+        View::render('reportes/estadisticas_sanciones', [
+            'title' => 'Estadísticas de sanciones',
+            'filtros' => $filtros,
+            'estadisticas' => $estadisticas,
+            'error' => $error,
+        ]);
+    }
+
     public function exportarCsv(): void
     {
         $vista = trim((string) ($_GET['vista'] ?? 'mes'));
         if ($vista === 'anios') {
             $this->exportarAniosCsv();
+            return;
+        }
+
+        if ($vista === 'sanciones') {
+            $this->exportarSancionesCsv();
             return;
         }
 
@@ -113,6 +151,24 @@ final class EstadisticasAccionesController
         }
 
         Response::csv('srhn-estadisticas-acciones-anios.csv', ['Año', 'Tipo de acción', 'Total'], $rows);
+    }
+
+    public function exportarSancionesCsv(): void
+    {
+        $filtros = $this->filtrosDesdeRequest();
+        $filtros['tipo'] = self::TIPO_SANCIONES;
+        $rows = [];
+
+        foreach ($this->model->porMes($filtros) as $row) {
+            $rows[] = [
+                $row['anio'] ?? '',
+                $row['mes_numero'] ?? '',
+                $row['tipo_accion'] ?? '',
+                $row['total'] ?? '',
+            ];
+        }
+
+        Response::csv('srhn-estadisticas-sanciones.csv', ['Año', 'Mes', 'Tipo de acción', 'Total'], $rows);
     }
 
     private function filtrosDesdeRequest(): array
