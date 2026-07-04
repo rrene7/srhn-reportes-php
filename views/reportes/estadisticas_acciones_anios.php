@@ -6,7 +6,7 @@
 $estadisticas = is_array($estadisticas ?? null) ? $estadisticas : [];
 $porTipo = is_array($estadisticas['porTipo'] ?? null) ? $estadisticas['porTipo'] : [];
 $porAnio = is_array($estadisticas['porAnio'] ?? null) ? $estadisticas['porAnio'] : [];
-$queryExportar = http_build_query($filtros);
+$queryExportar = http_build_query(array_merge($filtros, ['vista' => 'anios']));
 ?>
 
 <section class="card no-print">
@@ -29,7 +29,7 @@ $queryExportar = http_build_query($filtros);
         </div>
         <div class="toolbar no-print">
             <button onclick="window.print()">Imprimir</button>
-            <a class="button-secondary" href="<?= e(url('/reportes/estadisticas-acciones-anios/exportar-csv?' . $queryExportar)) ?>">Exportar CSV</a>
+            <a class="button-secondary" href="<?= e(url('/reportes/estadisticas-acciones/exportar-csv?' . $queryExportar)) ?>">Exportar CSV</a>
         </div>
     </div>
 
@@ -37,7 +37,8 @@ $queryExportar = http_build_query($filtros);
         <div class="alert alert-error"><?= e($error) ?></div>
     <?php endif; ?>
 
-    <form method="get" action="<?= e(url('/reportes/estadisticas-acciones-anios')) ?>" class="filters no-print">
+    <form method="get" action="<?= e(url('/reportes/estadisticas-acciones')) ?>" class="filters no-print">
+        <input type="hidden" name="vista" value="anios">
         <div class="field field-wide">
             <label for="tipo">Tipo de acción</label>
             <select name="tipo" id="tipo">
@@ -62,7 +63,7 @@ $queryExportar = http_build_query($filtros);
 
         <div class="actions">
             <button type="submit">Generar estadística</button>
-            <a class="button-secondary" href="<?= e(url('/reportes/estadisticas-acciones-anios')) ?>">Limpiar</a>
+            <a class="button-secondary" href="<?= e(url('/reportes/estadisticas-acciones?vista=anios')) ?>">Limpiar</a>
         </div>
     </form>
 </section>
