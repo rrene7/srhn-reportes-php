@@ -18,13 +18,17 @@ $fechaDesde = (string) ($filtros['fecha_desde'] ?? '');
 $fechaHasta = (string) ($filtros['fecha_hasta'] ?? '');
 $queryString = http_build_query($filtros);
 $categoriaActual = $categoria !== '' && isset($categorias[$categoria]) ? $categorias[$categoria] : null;
+$verTodoQuery = http_build_query([
+    'fecha_desde' => '1900-01-01',
+    'fecha_hasta' => '2999-12-31',
+]);
 ?>
 
 <section class="card no-print">
     <div class="card-header">
         <div>
-            <h2>Reportes disponibles</h2>
-            <p>Reconstrucción progresiva de los reportes identificados en el módulo DLL/legado.</p>
+            <h2>Lista de Acciones completa</h2>
+            <p>Reconstrucción del listado de acciones del DLL: ascensos, traslados, vacaciones, permisos, sanciones, incapacidades, nombramientos y novedades.</p>
         </div>
     </div>
 
@@ -45,6 +49,10 @@ $categoriaActual = $categoria !== '' && isset($categorias[$categoria]) ? $catego
             <h2>Acciones por categoría</h2>
             <p>Accesos directos para cubrir los listados específicos del DLL.</p>
         </div>
+        <div class="toolbar">
+            <a class="button-secondary" href="<?= e(url('/reportes/acciones/resultado?' . $verTodoQuery)) ?>">Ver últimas acciones</a>
+            <a class="button-secondary" href="<?= e(url('/reportes/estadisticas-acciones')) ?>">Estadísticas</a>
+        </div>
     </div>
 
     <div class="report-menu">
@@ -61,8 +69,8 @@ $categoriaActual = $categoria !== '' && isset($categorias[$categoria]) ? $catego
 <section class="card">
     <div class="card-header">
         <div>
-            <h2><?= e($categoriaActual['titulo'] ?? $moduloActual['titulo']) ?></h2>
-            <p><?= e($categoriaActual !== null ? 'Reporte específico de acciones filtrado por categoría.' : $moduloActual['descripcion']) ?></p>
+            <h2><?= e($categoriaActual['titulo'] ?? 'Lista de Acciones completa') ?></h2>
+            <p><?= e($categoriaActual !== null ? 'Reporte específico de acciones filtrado por categoría.' : 'Listado general de acciones de personal con filtros por funcionario, tipo de acción y rango de fechas.') ?></p>
         </div>
     </div>
 
@@ -78,7 +86,7 @@ $categoriaActual = $categoria !== '' && isset($categorias[$categoria]) ? $catego
         <div class="alert alert-info">
             Tabla detectada: <strong><?= e($tabla) ?></strong>.
             <?php if ($modo === 'employee_actions'): ?>
-                El módulo está usando datos del funcionario mediante relación con <strong>employees</strong>.
+                Modo completo: acciones conectadas con <strong>employees</strong>, rangos, unidades y tipos de acción.
             <?php else: ?>
                 Columnas encontradas: <?= e(implode(', ', $columnas)) ?>.
             <?php endif; ?>
@@ -128,6 +136,7 @@ $categoriaActual = $categoria !== '' && isset($categorias[$categoria]) ? $catego
             <?php if ($rows !== null): ?>
                 <a href="<?= e(url('/reportes/acciones/exportar-csv?' . $queryString)) ?>" class="button-secondary">Exportar CSV</a>
             <?php endif; ?>
+            <a href="<?= e(url('/reportes/acciones/resultado?' . $verTodoQuery)) ?>" class="button-secondary">Ver últimas acciones</a>
             <a href="<?= e(url('/reportes/acciones')) ?>" class="button-secondary">Limpiar</a>
         </div>
     </form>
@@ -241,6 +250,6 @@ $categoriaActual = $categoria !== '' && isset($categorias[$categoria]) ? $catego
 <section class="card muted">
     <h3>Equivalencia con el DLL</h3>
     <p>
-        Este bloque cubre la familia de listados de acciones del sistema legado: ascensos, traslados, vacaciones, licencias, sanciones, incapacidades y novedades. Cuando confirmemos los nombres exactos de tablas y columnas del DLL, este módulo se ajusta de genérico a reporte especializado.
+        Este bloque cubre la Lista de Acciones completa del sistema legado: nombramientos, ascensos, traslados, vacaciones, permisos, licencias, sanciones, incapacidades, rotaciones, bajas administrativas y demás registros de historial institucional.
     </p>
 </section>
