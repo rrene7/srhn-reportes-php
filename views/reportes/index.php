@@ -38,6 +38,12 @@
             <small>Equivalente a Estadísticas: resume personal por rango, dependencia, sexo y estatus.</small>
         </a>
 
+        <a class="report-card" href="<?= e(url('/reportes/estadisticas-acciones')) ?>">
+            <span class="module-status">DLL</span>
+            <strong>Estadísticas de acciones</strong>
+            <small>Equivalente a EST.ACC.: desglose mensual de acciones por tipo.</small>
+        </a>
+
         <a class="report-card" href="<?= e(url('/reportes/opciones-multiples')) ?>">
             <span class="module-status">DLL</span>
             <strong>Reporte Opciones Múltiples</strong>
