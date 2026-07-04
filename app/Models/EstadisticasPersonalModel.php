@@ -100,9 +100,9 @@ final class EstadisticasPersonalModel
         $estadoModo = trim((string) ($filtros['estado_modo'] ?? 'activo'));
         $estado = trim((string) ($filtros['estado'] ?? ''));
         if ($estadoModo === 'activo') {
-            $where[] = "(COALESCE(s.legacy_code, e.legacy_status_code, '') = '10' OR UPPER(COALESCE(s.name, e.external_user_status, e.external_agent_status, '')) = 'ACTIVO')";
+            $where[] = "(TRIM(COALESCE(s.legacy_code, e.legacy_status_code, '')) IN ('10','010') OR UPPER(COALESCE(s.name, e.external_user_status, e.external_agent_status, '')) LIKE 'ACTIVO%' OR UPPER(COALESCE(s.name, e.external_user_status, e.external_agent_status, '')) LIKE '%EN SERVICIO%')";
         } elseif ($estadoModo === 'especifico' && $estado !== '') {
-            $where[] = "COALESCE(s.legacy_code, e.legacy_status_code, '') = :estado";
+            $where[] = "TRIM(COALESCE(s.legacy_code, e.legacy_status_code, '')) = :estado";
             $params[':estado'] = $estado;
         }
 
