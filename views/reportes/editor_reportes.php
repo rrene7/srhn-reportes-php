@@ -11,8 +11,36 @@ $rangos = $catalogos['rangos'] ?? [];
 $unidades = $catalogos['unidades'] ?? [];
 $estados = $catalogos['estados'] ?? [];
 $tiposAccion = $catalogos['tiposAccion'] ?? [];
-$queryPlantilla = http_build_query(array_merge($filtros, ['generar' => '1']));
-$queryExportar = http_build_query(array_merge($filtros, ['generar' => '1']));
+
+function editorReporteQueryLimpio(array $filtros, array $columnasSeleccionadas, string $fuenteActualCodigo): string
+{
+    $query = [
+        'fuente' => $fuenteActualCodigo,
+        'columnas' => implode(',', $columnasSeleccionadas),
+        'generar' => '1',
+    ];
+
+    foreach (['rango_desde', 'rango_hasta', 'unidad', 'sexo', 'estado_modo', 'estado', 'buscar'] as $campo) {
+        $valor = trim((string) ($filtros[$campo] ?? ''));
+        if ($valor !== '' && !($campo === 'sexo' && $valor === 'A')) {
+            $query[$campo] = $valor;
+        }
+    }
+
+    if ($fuenteActualCodigo === 'acciones') {
+        foreach (['tipo_accion', 'fecha_desde', 'fecha_hasta'] as $campo) {
+            $valor = trim((string) ($filtros[$campo] ?? ''));
+            if ($valor !== '') {
+                $query[$campo] = $valor;
+            }
+        }
+    }
+
+    return http_build_query($query, '', '&', PHP_QUERY_RFC3986);
+}
+
+$queryPlantilla = editorReporteQueryLimpio($filtros, $columnasSeleccionadas, $fuenteActualCodigo);
+$queryExportar = $queryPlantilla;
 ?>
 
 <section class="card no-print">
@@ -148,16 +176,19 @@ $queryExportar = http_build_query(array_merge($filtros, ['generar' => '1']));
                     </option>
                 <?php endforeach; ?>
             </select>
+            <small>Solo aplica cuando el origen es Acciones de personal.</small>
         </div>
 
         <div class="field">
             <label for="fecha_desde">Fecha acción desde</label>
             <input type="date" name="fecha_desde" id="fecha_desde" value="<?= e($filtros['fecha_desde'] ?? '') ?>">
+            <small>Solo aplica para acciones.</small>
         </div>
 
         <div class="field">
             <label for="fecha_hasta">Fecha acción hasta</label>
             <input type="date" name="fecha_hasta" id="fecha_hasta" value="<?= e($filtros['fecha_hasta'] ?? '') ?>">
+            <small>Solo aplica para acciones.</small>
         </div>
 
         <div class="field field-wide">
