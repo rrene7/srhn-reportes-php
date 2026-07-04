@@ -3,6 +3,9 @@
 /** @var array $tiposAccion */
 /** @var array $data */
 /** @var ?string $error */
+$data = is_array($data ?? null) ? $data : [];
+$porTipo = is_array($data['porTipo'] ?? null) ? $data['porTipo'] : [];
+$porMes = is_array($data['porMes'] ?? null) ? $data['porMes'] : [];
 $queryExportar = http_build_query($filtros);
 ?>
 
@@ -91,10 +94,10 @@ $queryExportar = http_build_query($filtros);
                     </tr>
                 </thead>
                 <tbody>
-                    <?php if (empty($data['porTipo'])): ?>
+                    <?php if (empty($porTipo)): ?>
                         <tr><td colspan="3" class="empty">Sin datos</td></tr>
                     <?php endif; ?>
-                    <?php foreach ($data['porTipo'] as $row): ?>
+                    <?php foreach ($porTipo as $row): ?>
                         <tr>
                             <td><?= e($row['codigo'] ?? '') ?></td>
                             <td><?= e($row['tipo_accion'] ?? '') ?></td>
@@ -117,10 +120,10 @@ $queryExportar = http_build_query($filtros);
                     </tr>
                 </thead>
                 <tbody>
-                    <?php if (empty($data['porMes'])): ?>
+                    <?php if (empty($porMes)): ?>
                         <tr><td colspan="4" class="empty">Sin datos</td></tr>
                     <?php endif; ?>
-                    <?php foreach ($data['porMes'] as $row): ?>
+                    <?php foreach ($porMes as $row): ?>
                         <tr>
                             <td><?= e($row['anio'] ?? '') ?></td>
                             <td><?= e($row['mes_numero'] ?? '') ?></td>
