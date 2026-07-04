@@ -174,6 +174,8 @@ final class EstadisticasAccionesModel
         if (preg_match('/^\d{4}-\d{2}-\d{2}$/', $fechaHasta)) {
             $where[] = 'a.action_date <= :fecha_hasta';
             $params[':fecha_hasta'] = $fechaHasta;
+        } else {
+            $where[] = 'a.action_date <= CURDATE()';
         }
 
         return [implode(' AND ', $where), $params];
