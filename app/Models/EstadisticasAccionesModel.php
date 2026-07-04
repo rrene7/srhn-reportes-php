@@ -82,6 +82,28 @@ final class EstadisticasAccionesModel
         return $stmt->fetchAll();
     }
 
+    public function porAnio(array $filtros): array
+    {
+        [$where, $params] = $this->where($filtros);
+        $sql = "
+            SELECT
+                YEAR(a.action_date) AS anio,
+                COALESCE(at.name, CONCAT('Tipo ', a.action_type_id)) AS tipo_accion,
+                COUNT(*) AS total
+            FROM employee_actions a
+            LEFT JOIN action_types at ON at.id = a.action_type_id
+            WHERE {$where}
+            GROUP BY anio, tipo_accion
+            ORDER BY anio DESC, tipo_accion ASC
+        ";
+
+        $stmt = $this->db->prepare($sql);
+        $this->bindParams($stmt, $params);
+        $stmt->execute();
+
+        return $stmt->fetchAll();
+    }
+
     public function porTipo(array $filtros): array
     {
         [$where, $params] = $this->where($filtros);
