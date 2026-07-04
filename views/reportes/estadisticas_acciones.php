@@ -1,13 +1,13 @@
 <?php
 /** @var array $filtros */
 /** @var array $tiposAccion */
-/** @var array $data */
+/** @var array $estadisticas */
 /** @var array $diagnostico */
 /** @var ?string $error */
-$data = is_array($data ?? null) ? $data : [];
+$estadisticas = is_array($estadisticas ?? null) ? $estadisticas : [];
 $diagnostico = is_array($diagnostico ?? null) ? $diagnostico : [];
-$porTipo = is_array($data['porTipo'] ?? null) ? $data['porTipo'] : [];
-$porMes = is_array($data['porMes'] ?? null) ? $data['porMes'] : [];
+$porTipo = is_array($estadisticas['porTipo'] ?? null) ? $estadisticas['porTipo'] : [];
+$porMes = is_array($estadisticas['porMes'] ?? null) ? $estadisticas['porMes'] : [];
 $queryExportar = http_build_query($filtros);
 ?>
 
@@ -73,7 +73,7 @@ $queryExportar = http_build_query($filtros);
     <div class="grid-2">
         <div class="card muted">
             <h3>Total de acciones</h3>
-            <p><strong><?= e($data['total'] ?? 0) ?></strong></p>
+            <p><strong><?= e($estadisticas['total'] ?? 0) ?></strong></p>
             <small>Total según filtros aplicados.</small>
         </div>
         <div class="card muted">
