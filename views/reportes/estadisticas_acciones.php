@@ -2,8 +2,10 @@
 /** @var array $filtros */
 /** @var array $tiposAccion */
 /** @var array $data */
+/** @var array $diagnostico */
 /** @var ?string $error */
 $data = is_array($data ?? null) ? $data : [];
+$diagnostico = is_array($diagnostico ?? null) ? $diagnostico : [];
 $porTipo = is_array($data['porTipo'] ?? null) ? $data['porTipo'] : [];
 $porMes = is_array($data['porMes'] ?? null) ? $data['porMes'] : [];
 $queryExportar = http_build_query($filtros);
@@ -75,10 +77,21 @@ $queryExportar = http_build_query($filtros);
             <small>Total según filtros aplicados.</small>
         </div>
         <div class="card muted">
-            <h3>Reporte DLL</h3>
-            <p>EST.ACC. / Acción - desglose en mes</p>
+            <h3>Diagnóstico PHP</h3>
+            <p>Base: <strong><?= e($diagnostico['database'] ?? '') ?></strong></p>
+            <p>Tipo: <strong><?= e(($diagnostico['filtros']['tipo'] ?? '')) ?></strong></p>
+            <p>Desde: <strong><?= e(($diagnostico['filtros']['fecha_desde'] ?? '')) ?></strong></p>
+            <p>Hasta: <strong><?= e(($diagnostico['filtros']['fecha_hasta'] ?? '')) ?></strong></p>
+            <p>Total directo: <strong><?= e($diagnostico['total_directo'] ?? '') ?></strong></p>
+            <p>Total reporte: <strong><?= e($diagnostico['total_reporte'] ?? '') ?></strong></p>
         </div>
     </div>
+</section>
+
+<section class="card no-print">
+    <h3>Filtro SQL aplicado</h3>
+    <pre><?= e($diagnostico['where'] ?? '') ?></pre>
+    <pre><?= e(json_encode($diagnostico['params'] ?? [], JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE)) ?></pre>
 </section>
 
 <section class="card">
