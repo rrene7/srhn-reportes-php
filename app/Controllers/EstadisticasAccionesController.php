@@ -24,6 +24,7 @@ final class EstadisticasAccionesController
     {
         $filtros = $this->filtrosDesdeRequest();
         $data = ['total' => 0, 'porMes' => [], 'porTipo' => []];
+        $diagnostico = [];
         $error = null;
 
         try {
@@ -32,6 +33,7 @@ final class EstadisticasAccionesController
                 'porMes' => $this->model->porMes($filtros),
                 'porTipo' => $this->model->porTipo($filtros),
             ];
+            $diagnostico = $this->model->diagnostico($filtros);
         } catch (Throwable $e) {
             $error = $e->getMessage();
         }
@@ -41,6 +43,7 @@ final class EstadisticasAccionesController
             'filtros' => $filtros,
             'tiposAccion' => $this->model->tiposAccion(),
             'data' => $data,
+            'diagnostico' => $diagnostico,
             'error' => $error,
         ]);
     }
