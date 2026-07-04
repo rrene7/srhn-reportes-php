@@ -6,6 +6,7 @@ use App\Controllers\EstadisticasAccionesController;
 use App\Controllers\EstadisticasPersonalController;
 use App\Controllers\EstudiosGeneralesController;
 use App\Controllers\HojaVidaPlacaController;
+use App\Controllers\OperativosController;
 use App\Controllers\OpcionesMultiplesController;
 use App\Controllers\ReportesController;
 use App\Support\Env;
@@ -64,6 +65,7 @@ try {
     $estadisticasPersonalController = new EstadisticasPersonalController();
     $estadisticasAccionesController = new EstadisticasAccionesController();
     $hojaVidaController = new HojaVidaPlacaController();
+    $operativosController = new OperativosController();
 
     match ($path) {
         '/', '/reportes' => $controller->index(),
@@ -77,6 +79,8 @@ try {
         '/reportes/estadisticas-acciones/exportar-csv' => $estadisticasAccionesController->exportarCsv(),
         '/reportes/opciones-multiples' => $opcionesMultiplesController->index(),
         '/reportes/opciones-multiples/exportar-csv' => $opcionesMultiplesController->exportarCsv(),
+        '/reportes/operativos' => $operativosController->index(),
+        '/reportes/operativos/exportar-csv' => $operativosController->exportarCsv(),
         '/reportes/hoja-vida' => $hojaVidaController->index(),
         '/reportes/hoja-vida/exportar-csv' => $hojaVidaController->exportarCsv(),
         '/reportes/procedencia-oficiales' => $controller->procedenciaOficiales(),
