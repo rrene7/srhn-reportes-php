@@ -29,6 +29,35 @@ final class EstadisticasAccionesModel
         return (int) $stmt->fetchColumn();
     }
 
+    public function diagnostico(array $filtros): array
+    {
+        [$where, $params] = $this->where($filtros);
+        $sql = "SELECT COUNT(*) FROM employee_actions a LEFT JOIN action_types at ON at.id = a.action_type_id WHERE {$where}";
+        $stmt = $this->db->prepare($sql);
+        $this->bindParams($stmt, $params);
+        $stmt->execute();
+
+        $directSql = "SELECT COUNT(*) FROM employee_actions WHERE action_type_id = :tipo AND action_date BETWEEN :fecha_desde AND :fecha_hasta";
+        $direct = null;
+        if (($filtros['tipo'] ?? '') !== '' && ($filtros['fecha_desde'] ?? '') !== '' && ($filtros['fecha_hasta'] ?? '') !== '') {
+            $directStmt = $this->db->prepare($directSql);
+            $directStmt->bindValue(':tipo', (int) $filtros['tipo'], PDO::PARAM_INT);
+            $directStmt->bindValue(':fecha_desde', (string) $filtros['fecha_desde']);
+            $directStmt->bindValue(':fecha_hasta', (string) $filtros['fecha_hasta']);
+            $directStmt->execute();
+            $direct = (int) $directStmt->fetchColumn();
+        }
+
+        return [
+            'database' => (string) $this->db->query('SELECT DATABASE()')->fetchColumn(),
+            'filtros' => $filtros,
+            'where' => $where,
+            'params' => $this->paramsPlano($params),
+            'total_reporte' => (int) $stmt->fetchColumn(),
+            'total_directo' => $direct,
+        ];
+    }
+
     public function porMes(array $filtros): array
     {
         [$where, $params] = $this->where($filtros);
@@ -111,5 +140,15 @@ final class EstadisticasAccionesModel
 
             $stmt->bindValue($key, $value);
         }
+    }
+
+    private function paramsPlano(array $params): array
+    {
+        $plain = [];
+        foreach ($params as $key => $value) {
+            $plain[$key] = is_array($value) ? $value['value'] : $value;
+        }
+
+        return $plain;
     }
 }
