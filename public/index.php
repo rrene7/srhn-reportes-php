@@ -2,6 +2,7 @@
 
 declare(strict_types=1);
 
+use App\Controllers\EstadisticasPersonalController;
 use App\Controllers\EstudiosGeneralesController;
 use App\Controllers\OpcionesMultiplesController;
 use App\Controllers\ReportesController;
@@ -58,6 +59,7 @@ try {
     $controller = new ReportesController();
     $opcionesMultiplesController = new OpcionesMultiplesController();
     $estudiosGeneralesController = new EstudiosGeneralesController();
+    $estadisticasPersonalController = new EstadisticasPersonalController();
 
     match ($path) {
         '/', '/reportes' => $controller->index(),
@@ -65,6 +67,8 @@ try {
         '/reportes/por-dependencia' => $controller->porDependencia(),
         '/reportes/estudios-generales' => $estudiosGeneralesController->index(),
         '/reportes/estudios-generales/exportar-csv' => $estudiosGeneralesController->exportarCsv(),
+        '/reportes/estado-fuerza' => $estadisticasPersonalController->index(),
+        '/reportes/estado-fuerza/exportar-csv' => $estadisticasPersonalController->exportarCsv(),
         '/reportes/opciones-multiples' => $opcionesMultiplesController->index(),
         '/reportes/opciones-multiples/exportar-csv' => $opcionesMultiplesController->exportarCsv(),
         '/reportes/procedencia-oficiales' => $controller->procedenciaOficiales(),
