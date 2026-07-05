@@ -44,4 +44,43 @@ final class ReportTemplateModel
         $stmt->bindValue(':query_string', $queryString);
         $stmt->execute();
     }
+
+    public function renombrar(int $id, string $name): void
+    {
+        if (!$this->existeTabla()) {
+            throw new RuntimeException('La tabla report_templates no existe en la base de datos configurada del sistema.');
+        }
+
+        $stmt = $this->db->prepare('UPDATE report_templates SET name = :name WHERE id = :id AND is_active = 1');
+        $stmt->bindValue(':name', $name);
+        $stmt->bindValue(':id', $id, PDO::PARAM_INT);
+        $stmt->execute();
+    }
+
+    public function desactivar(int $id): void
+    {
+        if (!$this->existeTabla()) {
+            throw new RuntimeException('La tabla report_templates no existe en la base de datos configurada del sistema.');
+        }
+
+        $stmt = $this->db->prepare('UPDATE report_templates SET is_active = 0 WHERE id = :id');
+        $stmt->bindValue(':id', $id, PDO::PARAM_INT);
+        $stmt->execute();
+    }
+
+    public function duplicar(int $id): void
+    {
+        if (!$this->existeTabla()) {
+            throw new RuntimeException('La tabla report_templates no existe en la base de datos configurada del sistema.');
+        }
+
+        $stmt = $this->db->prepare(
+            "INSERT INTO report_templates (name, source, columns_json, filters_json, query_string, is_active)
+             SELECT CONCAT(name, ' - copia'), source, columns_json, filters_json, query_string, 1
+             FROM report_templates
+             WHERE id = :id AND is_active = 1"
+        );
+        $stmt->bindValue(':id', $id, PDO::PARAM_INT);
+        $stmt->execute();
+    }
 }
