@@ -22,6 +22,41 @@ final class VacacionesModel
         ];
     }
 
+    public function diagnostico(array $filtros): array
+    {
+        $base = $this->db->query("SELECT COUNT(*) FROM employee_actions")->fetchColumn();
+        $tipo4 = $this->db->query("SELECT COUNT(*) FROM employee_actions WHERE action_type_id = 4")->fetchColumn();
+        $porTipos = $this->db->query("
+            SELECT a.action_type_id, COALESCE(at.name, '') AS nombre, COUNT(*) AS total, MIN(a.action_date) AS fecha_min, MAX(a.action_date) AS fecha_max
+            FROM employee_actions a
+            LEFT JOIN action_types at ON at.id = a.action_type_id
+            GROUP BY a.action_type_id, at.name
+            ORDER BY total DESC
+            LIMIT 10
+        ")->fetchAll();
+
+        [$where, $params] = $this->where($filtros);
+        $stmt = $this->db->prepare("
+            SELECT COUNT(*) AS total_filtrado
+            FROM employee_actions a
+            LEFT JOIN action_types at ON at.id = a.action_type_id
+            LEFT JOIN employees e ON e.id = a.employee_id
+            LEFT JOIN ranks r ON r.id = e.rank_id
+            LEFT JOIN units u ON u.id = e.unit_id
+            LEFT JOIN statuses s ON s.id = e.status_id
+            WHERE {$where}
+        ");
+        $this->bindParams($stmt, $params);
+        $stmt->execute();
+
+        return [
+            'total_employee_actions' => (int) $base,
+            'total_action_type_4' => (int) $tipo4,
+            'total_filtrado_actual' => (int) $stmt->fetchColumn(),
+            'top_tipos' => $porTipos,
+        ];
+    }
+
     public function resumen(array $filtros): array
     {
         [$where, $params] = $this->where($filtros);
@@ -138,13 +173,8 @@ final class VacacionesModel
 
     private function where(array $filtros): array
     {
-        $where = [
-            'a.deleted_at IS NULL',
-            "(a.action_type_id = :vacaciones_tipo OR LOWER(COALESCE(at.name, '')) LIKE '%vacacion%')",
-        ];
-        $params = [
-            ':vacaciones_tipo' => ['value' => self::VACACIONES_ACTION_TYPE_ID, 'type' => PDO::PARAM_INT],
-        ];
+        $where = ["(a.action_type_id = :vacaciones_tipo OR LOWER(COALESCE(at.name, '')) LIKE '%vacacion%')"];
+        $params = [':vacaciones_tipo' => ['value' => self::VACACIONES_ACTION_TYPE_ID, 'type' => PDO::PARAM_INT]];
 
         $rangoDesde = trim((string) ($filtros['rango_desde'] ?? ''));
         $rangoHasta = trim((string) ($filtros['rango_hasta'] ?? ''));
