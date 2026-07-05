@@ -30,21 +30,45 @@ final class EditorReportesController
         $error = null;
         $mensaje = null;
 
-        if (($_SERVER['REQUEST_METHOD'] ?? 'GET') === 'POST' && ($_POST['accion'] ?? '') === 'guardar_plantilla') {
+        if (($_SERVER['REQUEST_METHOD'] ?? 'GET') === 'POST') {
             try {
-                $nombre = trim((string) ($_POST['template_name'] ?? ''));
-                if ($nombre === '') {
-                    throw new \RuntimeException('Debe escribir un nombre para guardar la plantilla.');
-                }
+                $accion = trim((string) ($_POST['accion'] ?? ''));
+                $id = (int) ($_POST['template_id'] ?? 0);
 
-                $this->templates->guardar(
-                    $nombre,
-                    $this->model->codigoFuenteActual($filtros),
-                    $this->model->columnasSeleccionadas($this->model->fuenteActual($filtros), $filtros['columnas'] ?? []),
-                    $filtros,
-                    trim((string) ($_POST['query_string'] ?? ''))
-                );
-                $mensaje = 'Plantilla guardada correctamente.';
+                if ($accion === 'guardar_plantilla') {
+                    $nombre = trim((string) ($_POST['template_name'] ?? ''));
+                    if ($nombre === '') {
+                        throw new \RuntimeException('Debe escribir un nombre para guardar la plantilla.');
+                    }
+
+                    $this->templates->guardar(
+                        $nombre,
+                        $this->model->codigoFuenteActual($filtros),
+                        $this->model->columnasSeleccionadas($this->model->fuenteActual($filtros), $filtros['columnas'] ?? []),
+                        $filtros,
+                        trim((string) ($_POST['query_string'] ?? ''))
+                    );
+                    $mensaje = 'Plantilla guardada correctamente.';
+                } elseif ($accion === 'renombrar_plantilla') {
+                    $nombre = trim((string) ($_POST['template_name'] ?? ''));
+                    if ($id <= 0 || $nombre === '') {
+                        throw new \RuntimeException('Debe indicar plantilla y nombre nuevo.');
+                    }
+                    $this->templates->renombrar($id, $nombre);
+                    $mensaje = 'Plantilla renombrada correctamente.';
+                } elseif ($accion === 'duplicar_plantilla') {
+                    if ($id <= 0) {
+                        throw new \RuntimeException('Debe indicar la plantilla a duplicar.');
+                    }
+                    $this->templates->duplicar($id);
+                    $mensaje = 'Plantilla duplicada correctamente.';
+                } elseif ($accion === 'desactivar_plantilla') {
+                    if ($id <= 0) {
+                        throw new \RuntimeException('Debe indicar la plantilla a desactivar.');
+                    }
+                    $this->templates->desactivar($id);
+                    $mensaje = 'Plantilla eliminada de la lista activa.';
+                }
             } catch (Throwable $e) {
                 $error = $e->getMessage();
             }
