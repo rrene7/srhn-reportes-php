@@ -9,6 +9,8 @@ use PDOStatement;
 
 final class VacacionesModel
 {
+    private const VACACIONES_ACTION_TYPE_ID = 4;
+
     public function __construct(private PDO $db) {}
 
     public function catalogos(): array
@@ -26,11 +28,13 @@ final class VacacionesModel
         $sql = "
             SELECT
                 COUNT(*) AS total,
-                SUM(CASE WHEN e.vacation_date IS NOT NULL THEN 1 ELSE 0 END) AS con_fecha_vacaciones,
-                SUM(CASE WHEN e.vacation_date IS NULL THEN 1 ELSE 0 END) AS sin_fecha_vacaciones,
-                SUM(CASE WHEN e.vacation_date IS NOT NULL AND e.vacation_date <= DATE_SUB(CURDATE(), INTERVAL 1 YEAR) THEN 1 ELSE 0 END) AS mas_de_un_anio,
-                SUM(CASE WHEN e.vacation_date IS NOT NULL AND e.vacation_date <= DATE_SUB(CURDATE(), INTERVAL 2 YEAR) THEN 1 ELSE 0 END) AS mas_de_dos_anios
-            FROM employees e
+                SUM(CASE WHEN a.action_date IS NOT NULL THEN 1 ELSE 0 END) AS con_fecha_vacaciones,
+                SUM(CASE WHEN a.action_date IS NULL THEN 1 ELSE 0 END) AS sin_fecha_vacaciones,
+                SUM(CASE WHEN a.action_date IS NOT NULL AND a.action_date <= DATE_SUB(CURDATE(), INTERVAL 1 YEAR) THEN 1 ELSE 0 END) AS mas_de_un_anio,
+                SUM(CASE WHEN a.action_date IS NOT NULL AND a.action_date <= DATE_SUB(CURDATE(), INTERVAL 2 YEAR) THEN 1 ELSE 0 END) AS mas_de_dos_anios
+            FROM employee_actions a
+            LEFT JOIN action_types at ON at.id = a.action_type_id
+            LEFT JOIN employees e ON e.id = a.employee_id
             LEFT JOIN ranks r ON r.id = e.rank_id
             LEFT JOIN units u ON u.id = e.unit_id
             LEFT JOIN statuses s ON s.id = e.status_id
@@ -76,16 +80,24 @@ final class VacacionesModel
                 COALESCE(s.name, e.external_user_status, e.external_agent_status, '') AS estado_nombre,
                 e.sex AS sexo,
                 e.hire_date AS fecha_ingreso,
-                e.vacation_date AS fecha_ultimas_vacaciones,
-                CASE WHEN e.vacation_date IS NULL THEN NULL ELSE DATEDIFF(CURDATE(), e.vacation_date) END AS dias_desde_vacaciones,
+                a.action_date AS fecha_ultimas_vacaciones,
+                a.start_date AS fecha_inicio_vacaciones,
+                a.end_date AS fecha_fin_vacaciones,
+                a.duration_value AS duracion,
+                a.duration_unit AS unidad_duracion,
+                a.resolution_number AS resolucion,
+                a.ogd_number AS ogd,
+                CASE WHEN a.action_date IS NULL THEN NULL ELSE DATEDIFF(CURDATE(), a.action_date) END AS dias_desde_vacaciones,
                 CASE WHEN e.hire_date IS NULL THEN NULL ELSE TIMESTAMPDIFF(YEAR, e.hire_date, CURDATE()) END AS anios_servicio,
                 CASE WHEN e.hire_date IS NULL THEN NULL ELSE ROUND(TIMESTAMPDIFF(DAY, e.hire_date, CURDATE()) * 2.5 / 30, 2) END AS dias_teoricos_generados
-            FROM employees e
+            FROM employee_actions a
+            LEFT JOIN action_types at ON at.id = a.action_type_id
+            LEFT JOIN employees e ON e.id = a.employee_id
             LEFT JOIN ranks r ON r.id = e.rank_id
             LEFT JOIN units u ON u.id = e.unit_id
             LEFT JOIN statuses s ON s.id = e.status_id
             WHERE {$where}
-            ORDER BY e.vacation_date ASC, u.legacy_code ASC, r.sort_order ASC, e.last_name ASC, e.first_name ASC
+            ORDER BY a.action_date DESC, a.id DESC
             LIMIT :limit
         ";
         $params[':limit'] = ['value' => max(1, min($limit, 1000)), 'type' => PDO::PARAM_INT];
@@ -105,9 +117,11 @@ final class VacacionesModel
                 {$codigoSql} AS codigo,
                 {$nombreSql} AS nombre,
                 COUNT(*) AS total,
-                SUM(CASE WHEN e.vacation_date IS NULL THEN 1 ELSE 0 END) AS sin_fecha,
-                SUM(CASE WHEN e.vacation_date IS NOT NULL AND e.vacation_date <= DATE_SUB(CURDATE(), INTERVAL 1 YEAR) THEN 1 ELSE 0 END) AS mas_de_un_anio
-            FROM employees e
+                SUM(CASE WHEN a.action_date IS NULL THEN 1 ELSE 0 END) AS sin_fecha,
+                SUM(CASE WHEN a.action_date IS NOT NULL AND a.action_date <= DATE_SUB(CURDATE(), INTERVAL 1 YEAR) THEN 1 ELSE 0 END) AS mas_de_un_anio
+            FROM employee_actions a
+            LEFT JOIN action_types at ON at.id = a.action_type_id
+            LEFT JOIN employees e ON e.id = a.employee_id
             LEFT JOIN ranks r ON r.id = e.rank_id
             LEFT JOIN units u ON u.id = e.unit_id
             LEFT JOIN statuses s ON s.id = e.status_id
@@ -124,8 +138,13 @@ final class VacacionesModel
 
     private function where(array $filtros): array
     {
-        $where = ['1 = 1'];
-        $params = [];
+        $where = [
+            'a.deleted_at IS NULL',
+            "(a.action_type_id = :vacaciones_tipo OR LOWER(COALESCE(at.name, '')) LIKE '%vacacion%')",
+        ];
+        $params = [
+            ':vacaciones_tipo' => ['value' => self::VACACIONES_ACTION_TYPE_ID, 'type' => PDO::PARAM_INT],
+        ];
 
         $rangoDesde = trim((string) ($filtros['rango_desde'] ?? ''));
         $rangoHasta = trim((string) ($filtros['rango_hasta'] ?? ''));
@@ -173,28 +192,28 @@ final class VacacionesModel
 
         $fechaDesde = trim((string) ($filtros['fecha_desde'] ?? ''));
         if (preg_match('/^\d{4}-\d{2}-\d{2}$/', $fechaDesde)) {
-            $where[] = 'e.vacation_date >= :fecha_desde';
+            $where[] = 'a.action_date >= :fecha_desde';
             $params[':fecha_desde'] = $fechaDesde;
         }
 
         $fechaHasta = trim((string) ($filtros['fecha_hasta'] ?? ''));
         if (preg_match('/^\d{4}-\d{2}-\d{2}$/', $fechaHasta)) {
-            $where[] = 'e.vacation_date <= :fecha_hasta';
+            $where[] = 'a.action_date <= :fecha_hasta';
             $params[':fecha_hasta'] = $fechaHasta;
         }
 
         $estadoVacaciones = trim((string) ($filtros['estado_vacaciones'] ?? 'todos'));
         if ($estadoVacaciones === 'sin_fecha') {
-            $where[] = 'e.vacation_date IS NULL';
+            $where[] = 'a.action_date IS NULL';
         } elseif ($estadoVacaciones === 'mas_un_anio') {
-            $where[] = 'e.vacation_date IS NOT NULL AND e.vacation_date <= DATE_SUB(CURDATE(), INTERVAL 1 YEAR)';
+            $where[] = 'a.action_date IS NOT NULL AND a.action_date <= DATE_SUB(CURDATE(), INTERVAL 1 YEAR)';
         } elseif ($estadoVacaciones === 'mas_dos_anios') {
-            $where[] = 'e.vacation_date IS NOT NULL AND e.vacation_date <= DATE_SUB(CURDATE(), INTERVAL 2 YEAR)';
+            $where[] = 'a.action_date IS NOT NULL AND a.action_date <= DATE_SUB(CURDATE(), INTERVAL 2 YEAR)';
         }
 
         $buscar = trim((string) ($filtros['buscar'] ?? ''));
         if ($buscar !== '') {
-            $where[] = "(e.document_number LIKE :buscar OR e.first_name LIKE :buscar OR e.last_name LIKE :buscar OR e.external_agent_number LIKE :buscar OR CAST(e.legacy_position AS CHAR) LIKE :buscar)";
+            $where[] = "(e.document_number LIKE :buscar OR e.first_name LIKE :buscar OR e.last_name LIKE :buscar OR e.external_agent_number LIKE :buscar OR CAST(e.legacy_position AS CHAR) LIKE :buscar OR a.resolution_number LIKE :buscar OR a.ogd_number LIKE :buscar)";
             $params[':buscar'] = '%' . $buscar . '%';
         }
 
