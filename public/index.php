@@ -7,6 +7,7 @@ use App\Controllers\EstadisticasAccionesController;
 use App\Controllers\EstadisticasPersonalController;
 use App\Controllers\EstudiosGeneralesController;
 use App\Controllers\HojaVidaPlacaController;
+use App\Controllers\MapaDatosController;
 use App\Controllers\OperativosController;
 use App\Controllers\OpcionesMultiplesController;
 use App\Controllers\ReportesController;
@@ -70,6 +71,7 @@ try {
     $operativosController = new OperativosController();
     $editorReportesController = new EditorReportesController();
     $vacacionesController = new VacacionesController();
+    $mapaDatosController = new MapaDatosController();
 
     match ($path) {
         '/', '/reportes' => $controller->index(),
@@ -90,6 +92,7 @@ try {
         '/reportes/vacaciones' => $vacacionesController->index(),
         '/reportes/vacaciones/diagnostico' => $vacacionesController->diagnostico(),
         '/reportes/vacaciones/exportar-csv' => $vacacionesController->exportarCsv(),
+        '/reportes/mapa-datos' => $mapaDatosController->index(),
         '/reportes/hoja-vida' => $hojaVidaController->index(),
         '/reportes/hoja-vida/exportar-csv' => $hojaVidaController->exportarCsv(),
         '/reportes/procedencia-oficiales' => $controller->procedenciaOficiales(),
