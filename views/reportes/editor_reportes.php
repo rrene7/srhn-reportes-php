@@ -69,7 +69,7 @@ $sinDatos = $resultado !== null && empty($resultado['rows'] ?? []);
                 <p>Reportes personalizados guardados en <strong>report_templates</strong>.</p>
             </div>
         </div>
-        <div class="table-wrapper">
+        <div class="table-wrapper" style="overflow: visible;">
             <table class="mini-table">
                 <thead>
                     <tr>
@@ -87,9 +87,9 @@ $sinDatos = $resultado !== null && empty($resultado['rows'] ?? []);
                             <td><?= e($plantilla['updated_at'] ?? '') ?></td>
                             <td>
                                 <a href="<?= e(url('/reportes/editor?' . ($plantilla['query_string'] ?? ''))) ?>">Abrir</a>
-                                <details style="display:inline-block; margin-left: .75rem; vertical-align: top;">
+                                <details style="display:inline-block; margin-left:.75rem; position:relative; vertical-align:middle;">
                                     <summary style="cursor:pointer;">Opciones</summary>
-                                    <div style="margin-top:.5rem; padding:.75rem; border:1px solid #d6dde8; border-radius:10px; background:#fff; min-width:280px;">
+                                    <div style="position:absolute; right:0; top:1.6rem; z-index:1000; margin-top:.35rem; padding:.75rem; border:1px solid #d6dde8; border-radius:10px; background:#fff; min-width:280px; box-shadow:0 12px 28px rgba(15,23,42,.14);">
                                         <form method="post" action="<?= e(url('/reportes/editor')) ?>" style="margin-bottom:.75rem;">
                                             <input type="hidden" name="accion" value="renombrar_plantilla">
                                             <input type="hidden" name="template_id" value="<?= e($plantilla['id'] ?? '') ?>">
