@@ -62,6 +62,12 @@
             <small>Equivalente a Reportes Varios: filtros por rango, ubicación, sexo, estatus, tipo de policía y campos opcionales.</small>
         </a>
 
+        <a class="report-card" href="<?= e(url('/reportes/vacaciones')) ?>">
+            <span class="module-status">PBL</span>
+            <strong>Reporte de Vacaciones</strong>
+            <small>Consulta vacaciones por funcionario, rango, dependencia, estatus, fecha y condición de últimas vacaciones.</small>
+        </a>
+
         <a class="report-card" href="<?= e(url('/reportes/hoja-vida')) ?>">
             <span class="module-status">DLL</span>
             <strong>Hoja de Vida para la placa</strong>
