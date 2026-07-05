@@ -94,6 +94,7 @@ try {
         '/reportes/vacaciones/exportar-csv' => $vacacionesController->exportarCsv(),
         '/reportes/mapa-datos' => $mapaDatosController->index(),
         '/reportes/mapa-datos/ejemplo' => $mapaDatosController->ejemplo(),
+        '/reportes/mapa-datos/exportar-excel' => $mapaDatosController->exportarExcel(),
         '/reportes/mapa-datos/diagnostico' => $mapaDatosController->diagnostico(),
         '/reportes/hoja-vida' => $hojaVidaController->index(),
         '/reportes/hoja-vida/exportar-csv' => $hojaVidaController->exportarCsv(),
