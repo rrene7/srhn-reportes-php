@@ -11,6 +11,7 @@ use App\Controllers\MapaDatosController;
 use App\Controllers\OperativosController;
 use App\Controllers\OpcionesMultiplesController;
 use App\Controllers\ReportesController;
+use App\Controllers\ReportesMultiplesController;
 use App\Controllers\VacacionesController;
 use App\Support\Env;
 
@@ -72,6 +73,7 @@ try {
     $editorReportesController = new EditorReportesController();
     $vacacionesController = new VacacionesController();
     $mapaDatosController = new MapaDatosController();
+    $reportesMultiplesController = new ReportesMultiplesController();
 
     match ($path) {
         '/', '/reportes' => $controller->index(),
@@ -87,6 +89,8 @@ try {
         '/reportes/editor/exportar-csv' => $editorReportesController->exportarCsv(),
         '/reportes/opciones-multiples' => $opcionesMultiplesController->index(),
         '/reportes/opciones-multiples/exportar-csv' => $opcionesMultiplesController->exportarCsv(),
+        '/reportes/multiples' => $reportesMultiplesController->index(),
+        '/reportes/multiples/data' => $reportesMultiplesController->data(),
         '/reportes/operativos' => $operativosController->index(),
         '/reportes/operativos/exportar-csv' => $operativosController->exportarCsv(),
         '/reportes/vacaciones' => $vacacionesController->index(),
