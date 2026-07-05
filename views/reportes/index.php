@@ -26,6 +26,12 @@
             </a>
         <?php endforeach; ?>
 
+        <a class="report-card" href="<?= e(url('/reportes/mapa-datos')) ?>">
+            <span class="module-status">BASE</span>
+            <strong>Mapa General de Datos</strong>
+            <small>Vista maestra: personal, zonas, áreas, dependencias, estados, acciones y rangos de fechas.</small>
+        </a>
+
         <a class="report-card" href="<?= e(url('/reportes/estudios-generales')) ?>">
             <span class="module-status">DLL</span>
             <strong>Estudios Generales</strong>
