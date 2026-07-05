@@ -19,7 +19,7 @@ final class MapaDatosController
 
     public function index(): void
     {
-        View::render('reportes/mapa_datos_directo', [
+        View::render('reportes/mapa_datos_granular', [
             'title' => 'Mapa General de Datos',
         ]);
     }
