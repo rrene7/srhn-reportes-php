@@ -6,6 +6,7 @@ namespace App\Controllers;
 
 use App\Models\MapaDatosModel;
 use App\Support\Database;
+use App\Support\SimpleXlsxWriter;
 use App\Support\View;
 use PDO;
 use Throwable;
@@ -36,20 +37,11 @@ final class MapaDatosController
     public function exportarExcel(): void
     {
         $db = Database::connect();
-        $filename = 'mapa_zonas_direcciones_' . date('Ymd_His') . '.xls';
-
-        header('Content-Type: application/vnd.ms-excel; charset=UTF-8');
-        header('Content-Disposition: attachment; filename="' . $filename . '"');
-        header('Cache-Control: max-age=0');
-
-        echo "\xEF\xBB\xBF";
-        echo '<?xml version="1.0" encoding="UTF-8"?>' . "\n";
-        echo '<Workbook xmlns="urn:schemas-microsoft-com:office:spreadsheet" xmlns:o="urn:schemas-microsoft-com:office:office" xmlns:x="urn:schemas-microsoft-com:office:excel" xmlns:ss="urn:schemas-microsoft-com:office:spreadsheet">' . "\n";
-        echo '<Styles><Style ss:ID="Header"><Font ss:Bold="1"/><Interior ss:Color="#D9E2F3" ss:Pattern="Solid"/></Style></Styles>' . "\n";
+        $writer = new SimpleXlsxWriter();
 
         $roots = $db->query("\n            SELECT id, legacy_code, name\n            FROM units\n            WHERE parent_id IS NULL OR parent_id = 0\n            ORDER BY legacy_code ASC, name ASC\n        ")->fetchAll(PDO::FETCH_ASSOC);
 
-        $this->excelSheet('Indice', [[
+        $writer->addSheet('Indice', [[
             'Tipo' => 'Base',
             'Dato' => 'Unidades sin padre',
             'Total' => count($roots),
@@ -66,17 +58,16 @@ final class MapaDatosController
                 'Personal directo' => $this->scalar($db, 'SELECT COUNT(*) FROM employees WHERE unit_id = :id', [':id' => (int) $root['id']]),
             ];
         }
-        $this->excelSheet('Unidades sin padre', $indexRows);
+        $writer->addSheet('Unidades sin padre', $indexRows);
 
         $candidatas = $db->query("\n            SELECT id, legacy_code, name\n            FROM units\n            WHERE (parent_id IS NULL OR parent_id = 0)\n              AND (\n                    UPPER(name) LIKE '%ZONA%'\n                 OR UPPER(name) LIKE 'DIR%'\n                 OR UPPER(name) LIKE '%DIRECCION%'\n                 OR UPPER(name) LIKE '%DIRECCIÓN%'\n              )\n            ORDER BY legacy_code ASC, name ASC\n            LIMIT 120\n        ")->fetchAll(PDO::FETCH_ASSOC);
 
         foreach ($candidatas as $root) {
             $rows = $this->treeRows($db, (int) $root['id']);
-            $sheetName = $this->sheetName((string) $root['legacy_code'] . ' ' . (string) $root['name']);
-            $this->excelSheet($sheetName, $rows);
+            $writer->addSheet((string) $root['legacy_code'] . ' ' . (string) $root['name'], $rows);
         }
 
-        echo '</Workbook>';
+        $writer->output('mapa_zonas_direcciones_' . date('Ymd_His') . '.xlsx');
     }
 
     public function diagnostico(): void
@@ -117,48 +108,5 @@ final class MapaDatosController
         } catch (Throwable) {
             return 0;
         }
-    }
-
-    private function excelSheet(string $name, array $rows): void
-    {
-        $name = $this->sheetName($name);
-        echo '<Worksheet ss:Name="' . $this->xml($name) . '"><Table>' . "\n";
-
-        if ($rows === []) {
-            echo '<Row><Cell ss:StyleID="Header"><Data ss:Type="String">Sin datos</Data></Cell></Row>' . "\n";
-            echo '</Table></Worksheet>' . "\n";
-            return;
-        }
-
-        $headers = array_keys($rows[0]);
-        echo '<Row>';
-        foreach ($headers as $header) {
-            echo '<Cell ss:StyleID="Header"><Data ss:Type="String">' . $this->xml((string) $header) . '</Data></Cell>';
-        }
-        echo '</Row>' . "\n";
-
-        foreach ($rows as $row) {
-            echo '<Row>';
-            foreach ($headers as $header) {
-                $value = $row[$header] ?? '';
-                $type = is_numeric($value) && $value !== '' ? 'Number' : 'String';
-                echo '<Cell><Data ss:Type="' . $type . '">' . $this->xml((string) $value) . '</Data></Cell>';
-            }
-            echo '</Row>' . "\n";
-        }
-
-        echo '</Table></Worksheet>' . "\n";
-    }
-
-    private function sheetName(string $name): string
-    {
-        $name = preg_replace('/[\\\\\/\?\*\[\]\:]/', ' ', $name) ?? 'Hoja';
-        $name = trim(preg_replace('/\s+/', ' ', $name) ?? 'Hoja');
-        return mb_substr($name !== '' ? $name : 'Hoja', 0, 31);
-    }
-
-    private function xml(string $value): string
-    {
-        return htmlspecialchars($value, ENT_XML1 | ENT_QUOTES, 'UTF-8');
     }
 }
