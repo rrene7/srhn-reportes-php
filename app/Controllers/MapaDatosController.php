@@ -19,7 +19,7 @@ final class MapaDatosController
 
     public function index(): void
     {
-        View::render('reportes/mapa_datos_busqueda', [
+        View::render('reportes/mapa_datos_explorador', [
             'title' => 'Mapa General de Datos',
         ]);
     }
