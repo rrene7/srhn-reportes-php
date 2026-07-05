@@ -53,7 +53,7 @@ $sinDatos = $resultado !== null && empty($resultado['rows'] ?? []);
     <div class="card-header">
         <div>
             <h2>EDITOR DE REP avanzado</h2>
-            <p>Constructor seguro de reportes: elige origen, columnas, filtros, vista previa, guardado de plantillas y exportación.</p>
+            <p>Constructor seguro de reportes: elige origen, columnas, filtros, vista previa, plantillas y exportación.</p>
         </div>
         <div class="toolbar">
             <a class="button-secondary" href="<?= e(url('/reportes')) ?>">Volver a reportes</a>
@@ -77,6 +77,8 @@ $sinDatos = $resultado !== null && empty($resultado['rows'] ?? []);
                         <th>Origen</th>
                         <th>Actualizada</th>
                         <th>Abrir</th>
+                        <th>Editar nombre</th>
+                        <th>Acciones</th>
                     </tr>
                 </thead>
                 <tbody>
@@ -85,7 +87,27 @@ $sinDatos = $resultado !== null && empty($resultado['rows'] ?? []);
                             <td><?= e($plantilla['name'] ?? '') ?></td>
                             <td><?= e($plantilla['source'] ?? '') ?></td>
                             <td><?= e($plantilla['updated_at'] ?? '') ?></td>
-                            <td><a href="<?= e(url('/reportes/editor?' . ($plantilla['query_string'] ?? ''))) ?>">Abrir plantilla</a></td>
+                            <td><a href="<?= e(url('/reportes/editor?' . ($plantilla['query_string'] ?? ''))) ?>">Abrir</a></td>
+                            <td>
+                                <form method="post" action="<?= e(url('/reportes/editor')) ?>" class="inline-form">
+                                    <input type="hidden" name="accion" value="renombrar_plantilla">
+                                    <input type="hidden" name="template_id" value="<?= e($plantilla['id'] ?? '') ?>">
+                                    <input type="text" name="template_name" value="<?= e($plantilla['name'] ?? '') ?>" required>
+                                    <button type="submit">Renombrar</button>
+                                </form>
+                            </td>
+                            <td>
+                                <form method="post" action="<?= e(url('/reportes/editor')) ?>" class="inline-form" style="display:inline-block;">
+                                    <input type="hidden" name="accion" value="duplicar_plantilla">
+                                    <input type="hidden" name="template_id" value="<?= e($plantilla['id'] ?? '') ?>">
+                                    <button type="submit">Duplicar</button>
+                                </form>
+                                <form method="post" action="<?= e(url('/reportes/editor')) ?>" class="inline-form" style="display:inline-block;" onsubmit="return confirm('¿Desactivar esta plantilla?');">
+                                    <input type="hidden" name="accion" value="desactivar_plantilla">
+                                    <input type="hidden" name="template_id" value="<?= e($plantilla['id'] ?? '') ?>">
+                                    <button type="submit">Eliminar</button>
+                                </form>
+                            </td>
                         </tr>
                     <?php endforeach; ?>
                 </tbody>
