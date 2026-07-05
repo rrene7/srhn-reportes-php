@@ -208,13 +208,13 @@ final class OpcionesMultiplesModel
 
         $sexo = strtoupper(trim((string) ($filtros['sexo'] ?? 'A')));
         if (in_array($sexo, ['M', 'F'], true)) {
-            $where[] = 'UPPER(COALESCE(e.sex, \'\')) = :sexo';
+            $where[] = 'TRIM(UPPER(COALESCE(e.sex, \'\'))) = :sexo';
             $params[':sexo'] = $sexo;
         }
 
         $tipoPolicia = strtoupper(trim((string) ($filtros['tipo_policia'] ?? 'todos')));
         if (in_array($tipoPolicia, ['OO', 'NO', 'OA'], true)) {
-            $where[] = 'UPPER(COALESCE(e.external_user_type, \'\')) = :tipo_policia';
+            $where[] = 'TRIM(UPPER(COALESCE(e.external_user_type, \'\'))) = :tipo_policia';
             $params[':tipo_policia'] = $tipoPolicia;
         }
 
