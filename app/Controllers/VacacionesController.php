@@ -58,6 +58,35 @@ final class VacacionesController
         ]);
     }
 
+    public function diagnostico(): void
+    {
+        $filtros = $this->filtrosDesdeRequest();
+        $diagnostico = $this->model->diagnostico($filtros);
+
+        header('Content-Type: text/html; charset=UTF-8');
+        echo '<h1>Diagnóstico de vacaciones</h1>';
+        echo '<p><a href="' . e(url('/reportes/vacaciones')) . '">Volver</a></p>';
+        echo '<h2>Totales</h2>';
+        echo '<pre>' . e(json_encode([
+            'total_employee_actions' => $diagnostico['total_employee_actions'] ?? 0,
+            'total_action_type_4' => $diagnostico['total_action_type_4'] ?? 0,
+            'total_filtrado_actual' => $diagnostico['total_filtrado_actual'] ?? 0,
+        ], JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE)) . '</pre>';
+        echo '<h2>Top tipos de acción</h2>';
+        echo '<table border="1" cellpadding="6" cellspacing="0">';
+        echo '<tr><th>Tipo</th><th>Nombre</th><th>Total</th><th>Fecha mínima</th><th>Fecha máxima</th></tr>';
+        foreach (($diagnostico['top_tipos'] ?? []) as $row) {
+            echo '<tr>';
+            echo '<td>' . e($row['action_type_id'] ?? '') . '</td>';
+            echo '<td>' . e($row['nombre'] ?? '') . '</td>';
+            echo '<td>' . e($row['total'] ?? 0) . '</td>';
+            echo '<td>' . e($row['fecha_min'] ?? '') . '</td>';
+            echo '<td>' . e($row['fecha_max'] ?? '') . '</td>';
+            echo '</tr>';
+        }
+        echo '</table>';
+    }
+
     public function exportarCsv(): void
     {
         $filtros = $this->filtrosDesdeRequest();
