@@ -3,7 +3,7 @@ use App\Support\Database;
 
 $db = Database::connect();
 $base = (string) $db->query('SELECT DATABASE()')->fetchColumn();
-$q = trim((string) ($_GET['q'] ?? ''));
+$q = trim((string) ($_GET['q'] ?? $_GET['buscar'] ?? ''));
 $p = max(0, (int) ($_GET['p'] ?? 0));
 $limit = max(25, min(300, (int) ($_GET['limit'] ?? 100)));
 
@@ -87,6 +87,21 @@ function mdInClause(array $ids, string $columna): array
     }
 
     return [$columna . ' IN (' . implode(',', $marks) . ')', $params];
+}
+
+function mdTokens(string $nombre): array
+{
+    $tokens = preg_split('/[^A-Z0-9ÁÉÍÓÚÑ]+/u', mb_strtoupper($nombre, 'UTF-8')) ?: [];
+    $stop = ['ZONA', 'POL', 'POLICIA', 'POLICIAL', 'DIRECCION', 'DIRECCIÓN', 'DIR', 'DEPTO', 'DEPTO.', 'SECCION', 'SECCIONAL', 'DE', 'DEL', 'LA', 'EL', 'LOS', 'LAS', 'UNIDAD', 'UNID'];
+    $out = [];
+    foreach ($tokens as $token) {
+        $token = trim($token);
+        if (mb_strlen($token, 'UTF-8') < 4 || in_array($token, $stop, true)) {
+            continue;
+        }
+        $out[] = $token;
+    }
+    return array_values(array_unique(array_slice($out, -4)));
 }
 
 function mdCardLink(string $label, int $total, string $href): void
@@ -209,6 +224,7 @@ if ($p <= 0 && $q === '') {
 }
 
 $hijos = [];
+$relacionadas = [];
 if ($p > 0) {
     $hijos = mdRows($db, "
         SELECT
@@ -228,6 +244,39 @@ if ($p > 0) {
         $row['_link'] = '<a class="button-secondary" href="' . e(mdUrl(['p' => (int) $row['id']])) . '">Abrir lo que contiene</a>';
     }
     unset($row);
+
+    if (empty($hijos) && $seleccion) {
+        $tokens = mdTokens((string) ($seleccion['nombre'] ?? ''));
+        $relWhere = [];
+        $relParams = [':id' => $p];
+        foreach ($tokens as $i => $token) {
+            $key = ':tok' . $i;
+            $relWhere[] = 'UPPER(COALESCE(u.name, \'\')) LIKE ' . $key;
+            $relParams[$key] = '%' . $token . '%';
+        }
+        if ($relWhere !== []) {
+            $relacionadas = mdRows($db, "
+                SELECT
+                    u.id,
+                    COALESCE(u.legacy_code, '') AS codigo,
+                    COALESCE(u.name, 'Sin nombre') AS nombre,
+                    COALESCE(pu.name, '') AS padre,
+                    (SELECT COUNT(*) FROM units h WHERE h.parent_id = u.id) AS hijos,
+                    COUNT(e.id) AS personal
+                FROM units u
+                LEFT JOIN units pu ON pu.id = u.parent_id
+                LEFT JOIN employees e ON e.unit_id = u.id
+                WHERE u.id <> :id AND (" . implode(' OR ', $relWhere) . ")
+                GROUP BY u.id, codigo, nombre, padre, hijos
+                ORDER BY hijos DESC, personal DESC, codigo ASC
+                LIMIT {$limit}
+            ", $relParams);
+            foreach ($relacionadas as &$row) {
+                $row['_link'] = '<a class="button-secondary" href="' . e(mdUrl(['p' => (int) $row['id']])) . '">Seleccionar</a>';
+            }
+            unset($row);
+        }
+    }
 }
 
 $personalEstado = mdRows($db, "
@@ -274,10 +323,11 @@ $accionesTipo = mdRows($db, "
     <div class="card-header">
         <div>
             <h2>Mapa General de Datos</h2>
-            <p>Explorador por estructura real <strong>parent_id</strong>. Base: <strong><?= e($base) ?></strong>.</p>
+            <p>Explorador por búsqueda y estructura real <strong>parent_id</strong>. Base: <strong><?= e($base) ?></strong>.</p>
         </div>
         <div class="toolbar">
             <a class="button-secondary" href="<?= e(url('/reportes')) ?>">Volver a reportes</a>
+            <a class="button-secondary" href="<?= e(url('/reportes/mapa-datos/exportar-excel')) ?>">Exportar Excel</a>
             <a class="button-secondary" href="<?= e(url('/reportes/mapa-datos/ejemplo')) ?>">Ejemplo real</a>
             <button onclick="window.print()">Imprimir</button>
         </div>
@@ -286,11 +336,11 @@ $accionesTipo = mdRows($db, "
 
 <section class="card no-print">
     <h3>Búsqueda por nombre o código</h3>
-    <p>Escribe cualquier coincidencia real: provincia, zona, área, estación, unidad o código.</p>
-    <form method="get" action="<?= e(url('/reportes/mapa-datos')) ?>" class="filters">
+    <p>Escribe cualquier coincidencia real: provincia, zona, área, estación, unidad o código. Con 3 letras o más se buscará automáticamente.</p>
+    <form method="get" action="<?= e(url('/reportes/mapa-datos')) ?>" class="filters" id="mapaSearchForm">
         <div class="field field-wide">
             <label for="q">Buscar en unidades</label>
-            <input type="text" name="q" id="q" value="<?= e($q) ?>" placeholder="Ej. Panamá Oeste, Chiriquí, David, Colón, 100060">
+            <input type="text" name="q" id="q" value="<?= e($q) ?>" placeholder="Ej. Panamá Oeste, Chiriquí, David, Colón, 100060" autocomplete="off">
         </div>
         <div class="field">
             <label for="limit">Límite</label>
@@ -329,6 +379,9 @@ $accionesTipo = mdRows($db, "
 </section>
 
 <?php if ($q !== ''): ?>
+    <?php if (empty($resultadosBusqueda)): ?>
+        <section class="card"><div class="alert alert-info">No se encontraron coincidencias para: <?= e($q) ?></div></section>
+    <?php endif; ?>
     <?php mdTable('Resultados para: ' . $q, $resultadosBusqueda, ['codigo' => 'Código', 'nombre' => 'Nombre real', 'padre' => 'Padre', 'hijos' => 'Hijos', 'personal' => 'Personal directo', '_link' => 'Seleccionar'], 'resultados'); ?>
 <?php endif; ?>
 
@@ -338,6 +391,10 @@ $accionesTipo = mdRows($db, "
 
 <?php if ($p > 0): ?>
     <?php mdTable('Hijos directos de la selección actual', $hijos, ['codigo' => 'Código', 'nombre' => 'Nombre real', 'hijos' => 'Hijos', 'personal' => 'Personal directo', '_link' => 'Abrir'], 'unidades'); ?>
+    <?php if (empty($hijos) && !empty($relacionadas)): ?>
+        <section class="card muted"><p>Esta unidad no tiene hijos directos por <strong>parent_id</strong>. Se muestran unidades relacionadas por coincidencia de nombre para ayudarte a depurar o reorganizar la estructura.</p></section>
+        <?php mdTable('Unidades relacionadas por nombre/código', $relacionadas, ['codigo' => 'Código', 'nombre' => 'Nombre real', 'padre' => 'Padre', 'hijos' => 'Hijos', 'personal' => 'Personal directo', '_link' => 'Seleccionar'], 'relacionadas'); ?>
+    <?php endif; ?>
 <?php endif; ?>
 
 <div class="grid-2">
@@ -346,3 +403,18 @@ $accionesTipo = mdRows($db, "
 </div>
 
 <?php mdTable('Acciones por tipo', $accionesTipo, ['codigo' => 'Tipo', 'nombre' => 'Acción', 'total' => 'Total', 'fecha_minima' => 'Fecha mínima', 'fecha_maxima' => 'Fecha máxima'], 'acciones-por-tipo'); ?>
+
+<script>
+(() => {
+    const form = document.getElementById('mapaSearchForm');
+    const input = document.getElementById('q');
+    if (!form || !input) return;
+    let timer = null;
+    input.addEventListener('input', () => {
+        clearTimeout(timer);
+        const value = input.value.trim();
+        if (value.length < 3) return;
+        timer = setTimeout(() => form.submit(), 900);
+    });
+})();
+</script>
