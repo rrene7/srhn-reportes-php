@@ -2,6 +2,23 @@
 /** @var array $data */
 /** @var ?string $error */
 $resumen = $data['resumen'] ?? [];
+$diagnostico = $data['diagnostico'] ?? [];
+$totalesDiagnostico = [];
+foreach (($diagnostico['tablas'] ?? []) as $tabla) {
+    $totalesDiagnostico[(string) ($tabla['tabla'] ?? '')] = (int) ($tabla['total'] ?? 0);
+}
+if (($resumen['funcionarios'] ?? 0) === 0 && !empty($totalesDiagnostico)) {
+    $resumen = [
+        'funcionarios' => $totalesDiagnostico['employees'] ?? 0,
+        'acciones' => $totalesDiagnostico['employee_actions'] ?? 0,
+        'rangos' => $totalesDiagnostico['ranks'] ?? 0,
+        'dependencias' => $totalesDiagnostico['units'] ?? 0,
+        'estados_personal' => $totalesDiagnostico['statuses'] ?? 0,
+        'tipos_accion' => $totalesDiagnostico['action_types'] ?? 0,
+        'acciones_activas' => $totalesDiagnostico['employee_actions'] ?? 0,
+        'acciones_eliminadas' => 0,
+    ];
+}
 
 function mapaTabla(string $titulo, array $rows, array $columnas): void
 {
@@ -49,6 +66,7 @@ function mapaTabla(string $titulo, array $rows, array $columnas): void
         </div>
         <div class="toolbar">
             <a class="button-secondary" href="<?= e(url('/reportes')) ?>">Volver a reportes</a>
+            <a class="button-secondary" href="<?= e(url('/reportes/mapa-datos/diagnostico')) ?>">Diagnóstico</a>
             <button onclick="window.print()">Imprimir</button>
         </div>
     </div>
@@ -69,10 +87,18 @@ function mapaTabla(string $titulo, array $rows, array $columnas): void
         <div class="report-card"><span class="module-status">Catálogo</span><strong><?= e($resumen['dependencias'] ?? 0) ?></strong><small>Dependencias / unidades</small></div>
         <div class="report-card"><span class="module-status">Estados</span><strong><?= e($resumen['estados_personal'] ?? 0) ?></strong><small>Estados de personal</small></div>
         <div class="report-card"><span class="module-status">Acciones</span><strong><?= e($resumen['tipos_accion'] ?? 0) ?></strong><small>Tipos de acción</small></div>
-        <div class="report-card"><span class="module-status">Activas</span><strong><?= e($resumen['acciones_activas'] ?? 0) ?></strong><small>Acciones no eliminadas</small></div>
-        <div class="report-card"><span class="module-status">Eliminadas</span><strong><?= e($resumen['acciones_eliminadas'] ?? 0) ?></strong><small>Acciones con deleted_at</small></div>
+        <div class="report-card"><span class="module-status">Activas</span><strong><?= e($resumen['acciones_activas'] ?? 0) ?></strong><small>Acciones registradas</small></div>
+        <div class="report-card"><span class="module-status">Eliminadas</span><strong><?= e($resumen['acciones_eliminadas'] ?? 0) ?></strong><small>No determinado</small></div>
     </div>
 </section>
+
+<?php if (!empty($totalesDiagnostico)): ?>
+    <section class="card muted no-print">
+        <h3>Base conectada</h3>
+        <p><strong><?= e($diagnostico['database'] ?? '') ?></strong></p>
+        <p>Los totales principales se validan contra el diagnóstico directo de tablas.</p>
+    </section>
+<?php endif; ?>
 
 <section class="card muted">
     <h3>Lectura del mapa</h3>
