@@ -93,6 +93,7 @@ try {
         '/reportes/vacaciones/diagnostico' => $vacacionesController->diagnostico(),
         '/reportes/vacaciones/exportar-csv' => $vacacionesController->exportarCsv(),
         '/reportes/mapa-datos' => $mapaDatosController->index(),
+        '/reportes/mapa-datos/diagnostico' => $mapaDatosController->diagnostico(),
         '/reportes/hoja-vida' => $hojaVidaController->index(),
         '/reportes/hoja-vida/exportar-csv' => $hojaVidaController->exportarCsv(),
         '/reportes/procedencia-oficiales' => $controller->procedenciaOficiales(),
