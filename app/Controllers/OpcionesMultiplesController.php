@@ -37,14 +37,14 @@ final class OpcionesMultiplesController
 
                 if ((int) $total === 0 && strtolower((string) ($filtros['tipo_policia'] ?? 'todos')) !== 'todos') {
                     $tipo = strtoupper((string) ($filtros['tipo_policia'] ?? ''));
-                    $error = 'Sin resultados con la clasificación ' . $tipo . '. Mantenga los demás filtros y pruebe la clasificación Todos para confirmar si el resto de filtros sí trae datos.';
+                    $error = 'Sin resultados con Tipo de policía ' . $tipo . '. Mantenga los demás filtros y pruebe Tipo de policía = Todos para confirmar si el resto de filtros sí trae datos.';
                 }
             } catch (Throwable $e) {
                 $error = $e->getMessage();
             }
         }
 
-        View::render('reportes/opciones_multiples', [
+        View::render('reportes/opciones_multiples_v2', [
             'title' => 'Reporte Opciones Múltiples',
             'catalogos' => $this->model->catalogos(),
             'filtros' => $filtros,
