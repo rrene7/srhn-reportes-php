@@ -88,6 +88,7 @@ try {
         '/reportes/operativos' => $operativosController->index(),
         '/reportes/operativos/exportar-csv' => $operativosController->exportarCsv(),
         '/reportes/vacaciones' => $vacacionesController->index(),
+        '/reportes/vacaciones/diagnostico' => $vacacionesController->diagnostico(),
         '/reportes/vacaciones/exportar-csv' => $vacacionesController->exportarCsv(),
         '/reportes/hoja-vida' => $hojaVidaController->index(),
         '/reportes/hoja-vida/exportar-csv' => $hojaVidaController->exportarCsv(),
