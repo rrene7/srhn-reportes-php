@@ -129,13 +129,18 @@ final class VacacionesModel
 
         $rangoDesde = trim((string) ($filtros['rango_desde'] ?? ''));
         $rangoHasta = trim((string) ($filtros['rango_hasta'] ?? ''));
-        if ($rangoDesde !== '') {
-            $where[] = 'CAST(COALESCE(r.legacy_code, 0) AS UNSIGNED) >= CAST(:rango_desde AS UNSIGNED)';
-            $params[':rango_desde'] = $rangoDesde;
-        }
-        if ($rangoHasta !== '') {
-            $where[] = 'CAST(COALESCE(r.legacy_code, 0) AS UNSIGNED) <= CAST(:rango_hasta AS UNSIGNED)';
-            $params[':rango_hasta'] = $rangoHasta;
+        if ($rangoDesde !== '' && $rangoHasta !== '') {
+            $desde = min((int) $rangoDesde, (int) $rangoHasta);
+            $hasta = max((int) $rangoDesde, (int) $rangoHasta);
+            $where[] = 'CAST(COALESCE(r.legacy_code, 0) AS UNSIGNED) BETWEEN :rango_desde AND :rango_hasta';
+            $params[':rango_desde'] = ['value' => $desde, 'type' => PDO::PARAM_INT];
+            $params[':rango_hasta'] = ['value' => $hasta, 'type' => PDO::PARAM_INT];
+        } elseif ($rangoDesde !== '') {
+            $where[] = 'CAST(COALESCE(r.legacy_code, 0) AS UNSIGNED) >= :rango_desde';
+            $params[':rango_desde'] = ['value' => (int) $rangoDesde, 'type' => PDO::PARAM_INT];
+        } elseif ($rangoHasta !== '') {
+            $where[] = 'CAST(COALESCE(r.legacy_code, 0) AS UNSIGNED) <= :rango_hasta';
+            $params[':rango_hasta'] = ['value' => (int) $rangoHasta, 'type' => PDO::PARAM_INT];
         }
 
         $unidad = trim((string) ($filtros['unidad'] ?? ''));
