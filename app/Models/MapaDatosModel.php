@@ -20,9 +20,40 @@ final class MapaDatosModel
             'dependencias' => $this->scalar('SELECT COUNT(*) FROM units'),
             'estados_personal' => $this->scalar('SELECT COUNT(*) FROM statuses'),
             'tipos_accion' => $this->scalar('SELECT COUNT(*) FROM action_types'),
-            'acciones_activas' => $this->scalar('SELECT COUNT(*) FROM employee_actions WHERE deleted_at IS NULL'),
-            'acciones_eliminadas' => $this->scalar('SELECT COUNT(*) FROM employee_actions WHERE deleted_at IS NOT NULL'),
+            'acciones_activas' => $this->scalar('SELECT COUNT(*) FROM employee_actions'),
+            'acciones_eliminadas' => 0,
         ];
+    }
+
+    public function diagnostico(): array
+    {
+        $tablas = ['employees', 'employee_actions', 'ranks', 'units', 'statuses', 'action_types'];
+        $resultado = [
+            'database' => (string) $this->db->query('SELECT DATABASE()')->fetchColumn(),
+            'tablas' => [],
+        ];
+
+        foreach ($tablas as $tabla) {
+            try {
+                $existe = (bool) $this->db->query("SHOW TABLES LIKE " . $this->db->quote($tabla))->fetchColumn();
+                $total = $existe ? (int) $this->db->query('SELECT COUNT(*) FROM `' . $tabla . '`')->fetchColumn() : 0;
+                $resultado['tablas'][] = [
+                    'tabla' => $tabla,
+                    'existe' => $existe ? 'SI' : 'NO',
+                    'total' => $total,
+                    'error' => '',
+                ];
+            } catch (Throwable $e) {
+                $resultado['tablas'][] = [
+                    'tabla' => $tabla,
+                    'existe' => 'ERROR',
+                    'total' => 0,
+                    'error' => $e->getMessage(),
+                ];
+            }
+        }
+
+        return $resultado;
     }
 
     public function personalPorEstado(): array
@@ -82,23 +113,11 @@ final class MapaDatosModel
 
     private function scalar(string $sql): int
     {
-        try {
-            return (int) $this->db->query($sql)->fetchColumn();
-        } catch (Throwable) {
-            return 0;
-        }
+        return (int) $this->db->query($sql)->fetchColumn();
     }
 
     private function query(string $sql): array
     {
-        try {
-            return $this->db->query($sql)->fetchAll();
-        } catch (Throwable $e) {
-            return [[
-                'codigo' => 'ERROR',
-                'nombre' => $e->getMessage(),
-                'total' => 0,
-            ]];
-        }
+        return $this->db->query($sql)->fetchAll();
     }
 }
