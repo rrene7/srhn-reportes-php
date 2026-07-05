@@ -6,11 +6,16 @@
 /** @var array $columnasSeleccionadas */
 /** @var array $catalogos */
 /** @var ?array $resultado */
+/** @var array $plantillas */
+/** @var bool $tablaPlantillasExiste */
+/** @var ?string $mensaje */
 /** @var ?string $error */
 $rangos = $catalogos['rangos'] ?? [];
 $unidades = $catalogos['unidades'] ?? [];
 $estados = $catalogos['estados'] ?? [];
 $tiposAccion = $catalogos['tiposAccion'] ?? [];
+$plantillas = is_array($plantillas ?? null) ? $plantillas : [];
+$tablaPlantillasExiste = (bool) ($tablaPlantillasExiste ?? false);
 
 function editorReporteQueryLimpio(array $filtros, array $columnasSeleccionadas, string $fuenteActualCodigo): string
 {
@@ -48,13 +53,46 @@ $sinDatos = $resultado !== null && empty($resultado['rows'] ?? []);
     <div class="card-header">
         <div>
             <h2>EDITOR DE REP avanzado</h2>
-            <p>Constructor seguro de reportes: elige origen, columnas, filtros, vista previa y exportación.</p>
+            <p>Constructor seguro de reportes: elige origen, columnas, filtros, vista previa, guardado de plantillas y exportación.</p>
         </div>
         <div class="toolbar">
             <a class="button-secondary" href="<?= e(url('/reportes')) ?>">Volver a reportes</a>
         </div>
     </div>
 </section>
+
+<?php if (!empty($plantillas)): ?>
+    <section class="card no-print">
+        <div class="card-header">
+            <div>
+                <h2>Plantillas guardadas</h2>
+                <p>Reportes personalizados guardados en <strong>report_templates</strong>.</p>
+            </div>
+        </div>
+        <div class="table-wrapper">
+            <table class="mini-table">
+                <thead>
+                    <tr>
+                        <th>Nombre</th>
+                        <th>Origen</th>
+                        <th>Actualizada</th>
+                        <th>Abrir</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <?php foreach ($plantillas as $plantilla): ?>
+                        <tr>
+                            <td><?= e($plantilla['name'] ?? '') ?></td>
+                            <td><?= e($plantilla['source'] ?? '') ?></td>
+                            <td><?= e($plantilla['updated_at'] ?? '') ?></td>
+                            <td><a href="<?= e(url('/reportes/editor?' . ($plantilla['query_string'] ?? ''))) ?>">Abrir plantilla</a></td>
+                        </tr>
+                    <?php endforeach; ?>
+                </tbody>
+            </table>
+        </div>
+    </section>
+<?php endif; ?>
 
 <section class="card">
     <div class="card-header">
@@ -69,6 +107,16 @@ $sinDatos = $resultado !== null && empty($resultado['rows'] ?? []);
             </div>
         <?php endif; ?>
     </div>
+
+    <?php if (!empty($mensaje)): ?>
+        <div class="alert alert-success"><?= e($mensaje) ?></div>
+    <?php endif; ?>
+
+    <?php if (!$tablaPlantillasExiste): ?>
+        <div class="alert alert-info">
+            La tabla <strong>report_templates</strong> no existe en la base conectada al sistema. El editor puede generar reportes, pero no puede guardar plantillas todavía.
+        </div>
+    <?php endif; ?>
 
     <?php if (!empty($error)): ?>
         <div class="alert alert-error"><?= e($error) ?></div>
@@ -218,6 +266,34 @@ $sinDatos = $resultado !== null && empty($resultado['rows'] ?? []);
         <h3>Plantilla reutilizable</h3>
         <p>Copia esta ruta para abrir el mismo reporte con los mismos filtros y columnas.</p>
         <pre><?= e(url('/reportes/editor?' . $queryPlantilla)) ?></pre>
+
+        <?php if ($tablaPlantillasExiste): ?>
+            <form method="post" action="<?= e(url('/reportes/editor')) ?>" class="filters" style="margin-top: 1rem;">
+                <input type="hidden" name="accion" value="guardar_plantilla">
+                <input type="hidden" name="fuente" value="<?= e($fuenteActualCodigo) ?>">
+                <input type="hidden" name="columnas" value="<?= e(implode(',', $columnasSeleccionadas)) ?>">
+                <input type="hidden" name="generar" value="1">
+                <input type="hidden" name="rango_desde" value="<?= e($filtros['rango_desde'] ?? '') ?>">
+                <input type="hidden" name="rango_hasta" value="<?= e($filtros['rango_hasta'] ?? '') ?>">
+                <input type="hidden" name="unidad" value="<?= e($filtros['unidad'] ?? '') ?>">
+                <input type="hidden" name="sexo" value="<?= e($filtros['sexo'] ?? 'A') ?>">
+                <input type="hidden" name="estado_modo" value="<?= e($filtros['estado_modo'] ?? 'activo') ?>">
+                <input type="hidden" name="estado" value="<?= e($filtros['estado'] ?? '') ?>">
+                <input type="hidden" name="tipo_accion" value="<?= e($filtros['tipo_accion'] ?? '') ?>">
+                <input type="hidden" name="fecha_desde" value="<?= e($filtros['fecha_desde'] ?? '') ?>">
+                <input type="hidden" name="fecha_hasta" value="<?= e($filtros['fecha_hasta'] ?? '') ?>">
+                <input type="hidden" name="buscar" value="<?= e($filtros['buscar'] ?? '') ?>">
+                <input type="hidden" name="query_string" value="<?= e($queryPlantilla) ?>">
+
+                <div class="field field-wide">
+                    <label for="template_name">Nombre de la plantilla</label>
+                    <input type="text" name="template_name" id="template_name" placeholder="Ejemplo: Mujeres activas por dependencia" required>
+                </div>
+                <div class="actions">
+                    <button type="submit">Guardar plantilla</button>
+                </div>
+            </form>
+        <?php endif; ?>
     </section>
 
     <section class="card">
