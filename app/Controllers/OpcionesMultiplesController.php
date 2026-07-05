@@ -37,7 +37,7 @@ final class OpcionesMultiplesController
 
                 if ((int) $total === 0 && strtolower((string) ($filtros['tipo_policia'] ?? 'todos')) !== 'todos') {
                     $tipo = strtoupper((string) ($filtros['tipo_policia'] ?? ''));
-                    $error = 'Sin resultados con Tipo de policía ' . $tipo . '. Mantenga los demás filtros y pruebe Tipo de policía = Todos u otra clasificación. Ejemplo: rango 50-60 suele corresponder a oficiales, por lo que NO puede devolver 0.';
+                    $error = 'Sin resultados con la clasificación ' . $tipo . '. Mantenga los demás filtros y pruebe la clasificación Todos para confirmar si el resto de filtros sí trae datos.';
                 }
             } catch (Throwable $e) {
                 $error = $e->getMessage();
