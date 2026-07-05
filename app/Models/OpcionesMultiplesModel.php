@@ -214,8 +214,15 @@ final class OpcionesMultiplesModel
 
         $tipoPolicia = strtoupper(trim((string) ($filtros['tipo_policia'] ?? 'todos')));
         if (in_array($tipoPolicia, ['OO', 'NO', 'OA'], true)) {
-            $where[] = 'TRIM(UPPER(COALESCE(e.external_user_type, \'\'))) = :tipo_policia';
-            $params[':tipo_policia'] = $tipoPolicia;
+            $tipoExpr = "TRIM(UPPER(COALESCE(e.external_user_type, '')))";
+
+            if ($tipoPolicia === 'OO') {
+                $where[] = "({$tipoExpr} = 'OO' OR {$tipoExpr} = 'OPERATIVO')";
+            } elseif ($tipoPolicia === 'NO') {
+                $where[] = "({$tipoExpr} = 'NO' OR {$tipoExpr} LIKE 'NO%OPERATIVO%')";
+            } elseif ($tipoPolicia === 'OA') {
+                $where[] = "({$tipoExpr} = 'OA' OR {$tipoExpr} LIKE 'OPERATIVO%ADMINISTRATIVO%')";
+            }
         }
 
         $estadoModo = trim((string) ($filtros['estado_modo'] ?? 'todos'));
