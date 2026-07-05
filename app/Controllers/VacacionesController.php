@@ -33,6 +33,7 @@ final class VacacionesController
             'porRango' => [],
             'porDependencia' => [],
             'listado' => [],
+            'diagnostico' => [],
         ];
         $error = null;
 
@@ -42,6 +43,7 @@ final class VacacionesController
                 'porRango' => $this->model->porRango($filtros),
                 'porDependencia' => $this->model->porDependencia($filtros),
                 'listado' => $this->model->listado($filtros, 300),
+                'diagnostico' => $this->model->diagnostico($filtros),
             ];
         } catch (Throwable $e) {
             $error = $e->getMessage();
