@@ -10,6 +10,7 @@ use App\Controllers\HojaVidaPlacaController;
 use App\Controllers\OperativosController;
 use App\Controllers\OpcionesMultiplesController;
 use App\Controllers\ReportesController;
+use App\Controllers\VacacionesController;
 use App\Support\Env;
 
 session_start();
@@ -68,6 +69,7 @@ try {
     $hojaVidaController = new HojaVidaPlacaController();
     $operativosController = new OperativosController();
     $editorReportesController = new EditorReportesController();
+    $vacacionesController = new VacacionesController();
 
     match ($path) {
         '/', '/reportes' => $controller->index(),
@@ -85,6 +87,8 @@ try {
         '/reportes/opciones-multiples/exportar-csv' => $opcionesMultiplesController->exportarCsv(),
         '/reportes/operativos' => $operativosController->index(),
         '/reportes/operativos/exportar-csv' => $operativosController->exportarCsv(),
+        '/reportes/vacaciones' => $vacacionesController->index(),
+        '/reportes/vacaciones/exportar-csv' => $vacacionesController->exportarCsv(),
         '/reportes/hoja-vida' => $hojaVidaController->index(),
         '/reportes/hoja-vida/exportar-csv' => $hojaVidaController->exportarCsv(),
         '/reportes/procedencia-oficiales' => $controller->procedenciaOficiales(),
