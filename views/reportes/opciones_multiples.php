@@ -18,6 +18,101 @@ $filtrosActivos = array_merge($filtros, ['generar' => '1', 'estado_modo' => 'act
 $queryTodosEstatus = http_build_query($filtrosTodos);
 $querySoloActivos = http_build_query($filtrosActivos);
 $queryExportar = http_build_query(array_merge($filtros, ['generar' => '1']));
+
+if (!function_exists('omGroupCounts')) {
+    function omGroupCounts(array $rows, string $field, string $emptyLabel = 'Sin dato', int $limit = 10): array
+    {
+        $counts = [];
+        foreach ($rows as $row) {
+            $label = trim((string) ($row[$field] ?? ''));
+            $label = $label !== '' ? $label : $emptyLabel;
+            $counts[$label] = ($counts[$label] ?? 0) + 1;
+        }
+        arsort($counts);
+        $out = [];
+        foreach (array_slice($counts, 0, $limit, true) as $label => $value) {
+            $out[] = ['label' => $label, 'value' => (int) $value];
+        }
+        return $out;
+    }
+}
+
+if (!function_exists('omPercent')) {
+    function omPercent(int|float $value, int|float $total): int
+    {
+        if ($total <= 0) {
+            return 0;
+        }
+        return max(0, min(100, (int) round(($value / $total) * 100)));
+    }
+}
+
+if (!function_exists('omDashboardCard')) {
+    function omDashboardCard(string $label, int|float $value, string $hint, int $percent): void
+    {
+        ?>
+        <div class="om-kpi-card">
+            <div class="om-kpi-top">
+                <div>
+                    <span><?= e($label) ?></span>
+                    <strong><?= e(number_format((float) $value)) ?></strong>
+                </div>
+                <div class="om-circle" style="--p:<?= e(max(4, $percent)) ?>"><em><?= e($percent) ?>%</em></div>
+            </div>
+            <small><?= e($hint) ?></small>
+            <div class="om-progress"><i style="width: <?= e(max(4, $percent)) ?>%"></i></div>
+        </div>
+        <?php
+    }
+}
+
+if (!function_exists('omBarList')) {
+    function omBarList(string $title, array $items, string $empty = 'Sin datos'): void
+    {
+        $max = 1;
+        foreach ($items as $item) {
+            $max = max($max, (int) ($item['value'] ?? 0));
+        }
+        ?>
+        <div class="om-viz-card">
+            <h3><?= e($title) ?></h3>
+            <?php if (empty($items)): ?>
+                <p class="empty"><?= e($empty) ?></p>
+            <?php else: ?>
+                <div class="om-bar-list">
+                    <?php foreach ($items as $item): ?>
+                        <?php $pct = omPercent((int) ($item['value'] ?? 0), $max); ?>
+                        <div class="om-bar-row">
+                            <span title="<?= e($item['label'] ?? '') ?>"><?= e($item['label'] ?? '') ?></span>
+                            <strong><?= e(number_format((int) ($item['value'] ?? 0))) ?></strong>
+                            <div><i style="width: <?= e(max(3, $pct)) ?>%"></i></div>
+                        </div>
+                    <?php endforeach; ?>
+                </div>
+            <?php endif; ?>
+        </div>
+        <?php
+    }
+}
+
+$visibleTotal = count($rows);
+$totalReal = (int) ($total ?? $visibleTotal);
+$masculino = (int) ($resumen['masculino'] ?? 0);
+$femenino = (int) ($resumen['femenino'] ?? 0);
+$activos = (int) ($resumen['activos'] ?? 0);
+$otrosEstados = (int) ($resumen['otros_estados'] ?? 0);
+$porRango = omGroupCounts($rows, 'rango_nombre', 'Sin rango', 10);
+$porUnidad = omGroupCounts($rows, 'unidad_nombre', 'Sin ubicación', 10);
+$porTipoPolicia = omGroupCounts($rows, 'tipo_policia', 'Sin tipo', 8);
+$porSexo = omGroupCounts($rows, 'sexo', 'Sin sexo', 4);
+$porEstadoVisible = omGroupCounts($rows, 'estado_nombre', 'Sin estado', 10);
+$porEstadoReal = [];
+foreach ($totalesEstado as $estado) {
+    $porEstadoReal[] = [
+        'label' => trim((string) (($estado['codigo'] ?? '') . ' - ' . ($estado['nombre'] ?? ''))),
+        'value' => (int) ($estado['total'] ?? 0),
+    ];
+}
 ?>
 
 <section class="card no-print">
@@ -221,22 +316,47 @@ $queryExportar = http_build_query(array_merge($filtros, ['generar' => '1']));
     </form>
 </section>
 
-<section class="card">
-    <div class="grid-2">
-        <div class="card muted">
-            <h3>Total consultado</h3>
-            <p><strong><?= e($total ?? $resumen['total'] ?? 0) ?></strong></p>
-            <small>La tabla muestra hasta 500 registros.</small>
+<section class="om-dashboard">
+    <div class="om-dashboard-head">
+        <div>
+            <span>Dashboard del reporte</span>
+            <h2>Resumen visual de Opciones Múltiples</h2>
+            <p>Los indicadores se calculan con el resultado consultado. La tabla muestra hasta 500 registros visibles.</p>
         </div>
-        <div class="card muted">
-            <h3>Resumen visible</h3>
-            <p>Masculino: <strong><?= e($resumen['masculino'] ?? 0) ?></strong></p>
-            <p>Femenino: <strong><?= e($resumen['femenino'] ?? 0) ?></strong></p>
-            <p>Activos: <strong><?= e($resumen['activos'] ?? 0) ?></strong></p>
-            <p>Otros estados: <strong><?= e($resumen['otros_estados'] ?? 0) ?></strong></p>
+        <div class="om-filter-pill">
+            Sexo: <?= e($filtros['sexo'] ?: 'A') ?> · Rango <?= e(($filtros['rango_inicial'] ?: 'Todos') . ' - ' . ($filtros['rango_final'] ?: 'Todos')) ?>
         </div>
     </div>
 
+    <div class="om-kpi-grid">
+        <?php omDashboardCard('Total real', $totalReal, 'Total encontrado por la consulta', 100); ?>
+        <?php omDashboardCard('Visible', $visibleTotal, 'Registros cargados en pantalla', omPercent($visibleTotal, max(1, $totalReal))); ?>
+        <?php omDashboardCard('Femenino', $femenino, 'Dentro del resultado visible', omPercent($femenino, max(1, $visibleTotal))); ?>
+        <?php omDashboardCard('Masculino', $masculino, 'Dentro del resultado visible', omPercent($masculino, max(1, $visibleTotal))); ?>
+        <?php omDashboardCard('Activos', $activos, 'Activos visibles', omPercent($activos, max(1, $visibleTotal))); ?>
+        <?php omDashboardCard('Otros estados', $otrosEstados, 'No activos visibles', omPercent($otrosEstados, max(1, $visibleTotal))); ?>
+    </div>
+
+    <div class="om-viz-grid">
+        <?php omBarList('Distribución por rango', $porRango); ?>
+        <?php omBarList('Distribución por estatus', $porEstadoReal ?: $porEstadoVisible); ?>
+        <?php omBarList('Top ubicaciones visibles', $porUnidad); ?>
+        <?php omBarList('Tipo de policía', $porTipoPolicia); ?>
+    </div>
+
+    <div class="om-mini-grid">
+        <?php omBarList('Sexo', $porSexo); ?>
+        <div class="om-viz-card om-note-card">
+            <h3>Lectura rápida</h3>
+            <p><strong>Consulta:</strong> <?= e($totalReal) ?> registros encontrados.</p>
+            <p><strong>Vista:</strong> <?= e($visibleTotal) ?> registros cargados para análisis rápido.</p>
+            <p><strong>Filtro principal:</strong> <?= e($filtros['sexo'] === 'F' ? 'Femenino' : ($filtros['sexo'] === 'M' ? 'Masculino' : 'Ambos sexos')) ?>.</p>
+            <p><strong>Orden:</strong> <?= e($filtros['ordenar_por'] ?? 'rango') ?>.</p>
+        </div>
+    </div>
+</section>
+
+<section class="card">
     <?php if (!empty($totalesEstado)): ?>
         <div class="table-wrapper">
             <h3>Resumen total por estatus</h3>
@@ -297,3 +417,226 @@ $queryExportar = http_build_query(array_merge($filtros, ['generar' => '1']));
         </table>
     </div>
 </section>
+
+<style>
+    .om-dashboard {
+        background: linear-gradient(180deg, #ffffff, #f8fbff);
+        border: 1px solid #d9e2ef;
+        border-radius: 24px;
+        padding: 1.2rem;
+        margin: 1rem 0;
+        box-shadow: 0 12px 30px rgba(15, 23, 42, .06);
+    }
+
+    .om-dashboard-head {
+        display: flex;
+        justify-content: space-between;
+        align-items: start;
+        gap: 1rem;
+        margin-bottom: 1rem;
+    }
+
+    .om-dashboard-head span {
+        color: #1d4f88;
+        font-weight: 900;
+        font-size: .78rem;
+        text-transform: uppercase;
+        letter-spacing: .05em;
+    }
+
+    .om-dashboard-head h2 {
+        margin: .25rem 0;
+        color: #0f172a;
+    }
+
+    .om-dashboard-head p {
+        color: #64748b;
+        margin: 0;
+    }
+
+    .om-filter-pill {
+        background: #eaf2fb;
+        color: #17375f;
+        padding: .65rem .85rem;
+        border-radius: 999px;
+        font-size: .86rem;
+        font-weight: 800;
+        white-space: nowrap;
+    }
+
+    .om-kpi-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(205px, 1fr));
+        gap: 1rem;
+        margin-bottom: 1rem;
+    }
+
+    .om-kpi-card {
+        background: #fff;
+        border: 1px solid #d9e2ef;
+        border-radius: 20px;
+        padding: 1rem;
+        box-shadow: 0 8px 22px rgba(15, 23, 42, .04);
+    }
+
+    .om-kpi-top {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: .85rem;
+    }
+
+    .om-kpi-card span {
+        display: block;
+        color: #64748b;
+        font-size: .76rem;
+        font-weight: 900;
+        text-transform: uppercase;
+        letter-spacing: .05em;
+    }
+
+    .om-kpi-card strong {
+        display: block;
+        color: #0f172a;
+        font-size: 1.85rem;
+        font-weight: 950;
+        line-height: 1.05;
+        margin-top: .25rem;
+    }
+
+    .om-kpi-card small {
+        display: block;
+        color: #64748b;
+        margin: .7rem 0 .55rem;
+    }
+
+    .om-circle {
+        --size: 60px;
+        width: var(--size);
+        height: var(--size);
+        border-radius: 50%;
+        background: conic-gradient(#17375f calc(var(--p) * 1%), #e6eef8 0);
+        position: relative;
+        display: grid;
+        place-items: center;
+        flex-shrink: 0;
+    }
+
+    .om-circle::before {
+        content: '';
+        width: 42px;
+        height: 42px;
+        border-radius: 50%;
+        background: #fff;
+        position: absolute;
+        box-shadow: inset 0 0 0 1px #e8eef5;
+    }
+
+    .om-circle em {
+        position: relative;
+        z-index: 1;
+        font-style: normal;
+        color: #17375f;
+        font-size: .7rem;
+        font-weight: 950;
+    }
+
+    .om-progress {
+        width: 100%;
+        height: 8px;
+        border-radius: 999px;
+        background: #e8eef5;
+        overflow: hidden;
+    }
+
+    .om-progress i {
+        display: block;
+        height: 100%;
+        border-radius: 999px;
+        background: linear-gradient(90deg, #17375f, #3d7fd6);
+    }
+
+    .om-viz-grid,
+    .om-mini-grid {
+        display: grid;
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+        gap: 1rem;
+        margin-top: 1rem;
+    }
+
+    .om-viz-card {
+        background: #fff;
+        border: 1px solid #d9e2ef;
+        border-radius: 20px;
+        padding: 1rem;
+        box-shadow: 0 8px 22px rgba(15, 23, 42, .04);
+        min-width: 0;
+    }
+
+    .om-viz-card h3 {
+        margin: 0 0 1rem;
+        color: #0f172a;
+        font-size: 1rem;
+        font-weight: 900;
+    }
+
+    .om-bar-list {
+        display: flex;
+        flex-direction: column;
+        gap: .78rem;
+    }
+
+    .om-bar-row {
+        display: grid;
+        grid-template-columns: minmax(130px, 1.3fr) 70px minmax(130px, 1fr);
+        gap: .7rem;
+        align-items: center;
+    }
+
+    .om-bar-row span {
+        color: #0f172a;
+        font-size: .88rem;
+        font-weight: 750;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+    }
+
+    .om-bar-row strong {
+        color: #334155;
+        text-align: right;
+        font-size: .85rem;
+        font-weight: 900;
+    }
+
+    .om-bar-row div {
+        height: 10px;
+        background: #e8eef5;
+        border-radius: 999px;
+        overflow: hidden;
+    }
+
+    .om-bar-row i {
+        display: block;
+        height: 100%;
+        background: linear-gradient(90deg, #17375f, #3d7fd6);
+        border-radius: 999px;
+    }
+
+    .om-note-card p {
+        color: #475569;
+        margin: .55rem 0;
+    }
+
+    @media (max-width: 900px) {
+        .om-dashboard-head,
+        .om-viz-grid,
+        .om-mini-grid {
+            grid-template-columns: 1fr;
+            flex-direction: column;
+        }
+        .om-filter-pill { white-space: normal; }
+        .om-bar-row { grid-template-columns: 1fr; gap: .35rem; }
+        .om-bar-row strong { text-align: left; }
+    }
+</style>
