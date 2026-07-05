@@ -34,6 +34,11 @@ final class OpcionesMultiplesController
                 $total = $this->model->contar($filtros);
                 $resumen = $this->model->resumen($rows);
                 $resumenEstados = $this->model->resumenPorEstatus($filtros);
+
+                if ((int) $total === 0 && strtolower((string) ($filtros['tipo_policia'] ?? 'todos')) !== 'todos') {
+                    $tipo = strtoupper((string) ($filtros['tipo_policia'] ?? ''));
+                    $error = 'Sin resultados con Tipo de policía ' . $tipo . '. Mantenga los demás filtros y pruebe Tipo de policía = Todos u otra clasificación. Ejemplo: rango 50-60 suele corresponder a oficiales, por lo que NO puede devolver 0.';
+                }
             } catch (Throwable $e) {
                 $error = $e->getMessage();
             }
