@@ -21,9 +21,12 @@ final class MapaDatosController
     public function index(): void
     {
         $errores = [];
+        $diagnostico = $this->seguro('diagnostico', static fn (MapaDatosModel $m): array => $m->diagnostico(), ['tablas' => []], $errores);
+        $resumen = $this->resumenDesdeDiagnostico($diagnostico);
 
         $data = [
-            'resumen' => $this->seguro('resumenGeneral', static fn (MapaDatosModel $m): array => $m->resumenGeneral(), [], $errores),
+            'resumen' => $resumen,
+            'diagnostico' => $diagnostico,
             'zonas' => $this->seguro('zonas', static fn (MapaDatosModel $m): array => $m->zonas(), [], $errores),
             'areas' => $this->seguro('areas', static fn (MapaDatosModel $m): array => $m->areas(), [], $errores),
             'dependencias' => $this->seguro('dependencias', static fn (MapaDatosModel $m): array => $m->dependencias(), [], $errores),
@@ -65,6 +68,25 @@ final class MapaDatosController
             echo '</tr>';
         }
         echo '</table>';
+    }
+
+    private function resumenDesdeDiagnostico(array $diagnostico): array
+    {
+        $totales = [];
+        foreach (($diagnostico['tablas'] ?? []) as $row) {
+            $totales[(string) ($row['tabla'] ?? '')] = (int) ($row['total'] ?? 0);
+        }
+
+        return [
+            'funcionarios' => $totales['employees'] ?? 0,
+            'acciones' => $totales['employee_actions'] ?? 0,
+            'rangos' => $totales['ranks'] ?? 0,
+            'dependencias' => $totales['units'] ?? 0,
+            'estados_personal' => $totales['statuses'] ?? 0,
+            'tipos_accion' => $totales['action_types'] ?? 0,
+            'acciones_activas' => $totales['employee_actions'] ?? 0,
+            'acciones_eliminadas' => 0,
+        ];
     }
 
     private function seguro(string $nombre, callable $callback, array $default, array &$errores): array
