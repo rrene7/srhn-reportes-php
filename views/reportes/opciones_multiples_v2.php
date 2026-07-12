@@ -1,7 +1,7 @@
 <?php
 /**
  * Capa visual temporal para que Opciones Múltiples use la clasificación
- * real almacenada en employees.police_operativity_type.
+ * operativa disponible en la base conectada.
  */
 
 ob_start();
@@ -10,6 +10,8 @@ $html = (string) ob_get_clean();
 
 $seleccionado = strtoupper(trim((string) ($filtros['tipo_policia'] ?? 'todos')));
 $tipos = $catalogos['tiposPolicia'] ?? [];
+$fuenteOperatividad = trim((string) ($catalogos['fuenteOperatividad'] ?? 'sin campo de operatividad disponible'));
+$usaCamposNuevos = (bool) ($catalogos['camposOperatividadNuevos'] ?? false);
 $totalSeleccionadoBase = 0;
 
 $options = '<option value="todos"' . ($seleccionado === 'TODOS' || $seleccionado === '' ? ' selected' : '') . '>Todas las clasificaciones</option>';
@@ -46,7 +48,9 @@ if ($seleccionado !== '' && $seleccionado !== 'TODOS') {
 $selectReplacement = '<select name="tipo_policia" id="tipo_policia">'
     . $options
     . '</select>'
-    . '<small>OO: Operativo · OA: Operativo administrativo · NO: No operativo. Fuente: employees.police_operativity_type.</small>'
+    . '<small>OO: Operativo · OA: Operativo administrativo · NO: No operativo. Fuente actual: '
+    . e($fuenteOperatividad)
+    . '.</small>'
     . $quickAction;
 
 $html = preg_replace_callback(
@@ -60,23 +64,36 @@ $html = str_replace('tipo de policía', 'clasificación operativa', $html);
 $html = str_replace('Tipo de policía', 'Clasificación operativa', $html);
 $html = str_replace('Sin tipo', 'Sin clasificación', $html);
 
+$avisos = '';
+
+if (!$usaCamposNuevos) {
+    $avisos .= '<div class="alert alert-info">'
+        . '<strong>Compatibilidad temporal:</strong> la base conectada no contiene todavía '
+        . '<code>employees.police_operativity_type</code>. El reporte está usando '
+        . '<code>' . e($fuenteOperatividad) . '</code> para no detener la pantalla. '
+        . 'Los campos motivo, referencia, fecha efectiva y notas permanecerán vacíos hasta conectar la base que contiene las columnas nuevas.'
+        . '</div>';
+}
+
 if ($seleccionado !== '' && $seleccionado !== 'TODOS' && (int) ($total ?? 0) === 0) {
     if ($totalSeleccionadoBase > 0) {
-        $diagnostico = '<div class="alert alert-info">'
+        $avisos .= '<div class="alert alert-info">'
             . 'La base contiene <strong>' . e(number_format($totalSeleccionadoBase)) . '</strong> registros con clasificación '
             . '<strong>' . e($seleccionado) . '</strong>, pero ninguno coincide con los demás filtros seleccionados. '
             . 'Pruebe el botón “Ver ' . e($seleccionado) . ' en todos los rangos”.'
             . '</div>';
     } else {
-        $diagnostico = '<div class="alert alert-info">'
-            . 'Actualmente no existen registros con clasificación <strong>' . e($seleccionado) . '</strong> en '
-            . '<code>employees.police_operativity_type</code>. La pantalla está activa, pero no hay datos para esa clasificación.'
+        $avisos .= '<div class="alert alert-info">'
+            . 'Actualmente no existen registros con clasificación <strong>' . e($seleccionado) . '</strong> en la fuente '
+            . '<code>' . e($fuenteOperatividad) . '</code>. La pantalla está activa, pero no hay datos para esa clasificación.'
             . '</div>';
     }
+}
 
+if ($avisos !== '') {
     $html = preg_replace_callback(
         '/(<form\s+method="get"\s+action="[^"]*"\s+class="filters no-print">)/',
-        static fn (array $matches): string => $diagnostico . $matches[1],
+        static fn (array $matches): string => $avisos . $matches[1],
         $html,
         1
     ) ?? $html;
