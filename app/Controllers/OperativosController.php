@@ -16,7 +16,9 @@ final class OperativosController
 
     public function __construct()
     {
-        $this->model = new OperativosModel(Database::connect());
+        // Vista temporal de consulta sobre la base nueva de RRHH.
+        // El resto del sistema conserva la conexión principal DB_NAME.
+        $this->model = new OperativosModel(Database::connect('rrhh'));
     }
 
     public function index(): void
