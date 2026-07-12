@@ -24,10 +24,14 @@ final class OpcionesMultiplesModel
         'operatividad_notas' => 'Notas operatividad',
     ];
 
+    private ?array $employeeColumns = null;
+
     public function __construct(private PDO $db) {}
 
     public function catalogos(): array
     {
+        $tipoExpr = $this->operatividadTipoSql();
+
         return [
             'rangos' => $this->catalogo('SELECT legacy_code AS codigo, name AS nombre FROM ranks ORDER BY sort_order ASC, legacy_code ASC'),
             'unidades' => $this->catalogo('SELECT legacy_code AS codigo, name AS nombre FROM units ORDER BY legacy_code ASC, name ASC'),
@@ -40,16 +44,13 @@ final class OpcionesMultiplesModel
                     UNION ALL SELECT 'NO', 'No operativo', 3
                     UNION ALL SELECT 'SIN DEFINIR', 'Sin clasificación', 4
                 ) tipos
-                LEFT JOIN employees e
-                    ON CASE
-                        WHEN TRIM(UPPER(COALESCE(e.police_operativity_type, ''))) IN ('OO', 'OA', 'NO')
-                            THEN TRIM(UPPER(e.police_operativity_type))
-                        ELSE 'SIN DEFINIR'
-                    END = tipos.codigo
+                LEFT JOIN employees e ON {$tipoExpr} = tipos.codigo
                 GROUP BY tipos.codigo, tipos.nombre, tipos.orden
                 ORDER BY tipos.orden ASC
             "),
             'camposOpcionales' => self::CAMPOS_OPCIONALES,
+            'fuenteOperatividad' => $this->fuenteOperatividad(),
+            'camposOperatividadNuevos' => $this->hasEmployeeColumn('police_operativity_type'),
         ];
     }
 
@@ -58,6 +59,12 @@ final class OpcionesMultiplesModel
         [$where, $params] = $this->where($filtros);
         $fechaCorte = $this->fechaCorte($filtros);
         $orden = $this->ordenSql((string) ($filtros['ordenar_por'] ?? 'rango'));
+
+        $tipoExpr = $this->operatividadTipoSql();
+        $motivoExpr = $this->employeeTextSql('police_operativity_reason');
+        $referenciaExpr = $this->employeeTextSql('police_operativity_reference');
+        $fechaExpr = $this->employeeDateSql('police_operativity_effective_date');
+        $notasExpr = $this->employeeTextSql('police_operativity_notes');
 
         $sql = "
             SELECT
@@ -74,15 +81,11 @@ final class OpcionesMultiplesModel
                 COALESCE(s.legacy_code, e.legacy_status_code, '') AS estado_codigo,
                 COALESCE(s.name, e.external_user_status, e.external_agent_status, '') AS estado_nombre,
                 CONCAT(COALESCE(s.legacy_code, e.legacy_status_code, ''), ' - ', COALESCE(s.name, e.external_user_status, e.external_agent_status, '')) AS estado,
-                CASE
-                    WHEN TRIM(UPPER(COALESCE(e.police_operativity_type, ''))) IN ('OO', 'OA', 'NO')
-                        THEN TRIM(UPPER(e.police_operativity_type))
-                    ELSE 'SIN DEFINIR'
-                END AS tipo_policia,
-                COALESCE(e.police_operativity_reason, '') AS operatividad_motivo,
-                COALESCE(e.police_operativity_reference, '') AS operatividad_referencia,
-                e.police_operativity_effective_date AS operatividad_fecha,
-                COALESCE(e.police_operativity_notes, '') AS operatividad_notas,
+                {$tipoExpr} AS tipo_policia,
+                {$motivoExpr} AS operatividad_motivo,
+                {$referenciaExpr} AS operatividad_referencia,
+                {$fechaExpr} AS operatividad_fecha,
+                {$notasExpr} AS operatividad_notas,
                 e.external_profile_id AS posicion_mi,
                 e.hire_date AS fecha_ingreso,
                 e.promotion_date AS fecha_ascenso,
@@ -231,11 +234,12 @@ final class OpcionesMultiplesModel
         }
 
         $tipoPolicia = strtoupper(trim((string) ($filtros['tipo_policia'] ?? 'TODOS')));
+        $tipoExpr = $this->operatividadTipoSql();
         if (in_array($tipoPolicia, ['OO', 'OA', 'NO'], true)) {
-            $where[] = "TRIM(UPPER(COALESCE(e.police_operativity_type, ''))) = :tipo_policia";
+            $where[] = "{$tipoExpr} = :tipo_policia";
             $params[':tipo_policia'] = $tipoPolicia;
         } elseif ($tipoPolicia === 'SIN DEFINIR') {
-            $where[] = "TRIM(COALESCE(e.police_operativity_type, '')) = ''";
+            $where[] = "{$tipoExpr} = 'SIN DEFINIR'";
         }
 
         $estadoModo = trim((string) ($filtros['estado_modo'] ?? 'todos'));
@@ -249,7 +253,14 @@ final class OpcionesMultiplesModel
 
         $buscar = trim((string) ($filtros['buscar'] ?? ''));
         if ($buscar !== '') {
-            $where[] = "(e.document_number LIKE :buscar_documento OR e.first_name LIKE :buscar_nombre OR e.last_name LIKE :buscar_apellido OR e.external_agent_number LIKE :buscar_agente OR CAST(e.legacy_position AS CHAR) LIKE :buscar_posicion OR CAST(e.id AS CHAR) LIKE :buscar_id OR COALESCE(e.police_operativity_reason, '') LIKE :buscar_motivo OR COALESCE(e.police_operativity_reference, '') LIKE :buscar_referencia OR COALESCE(e.police_operativity_notes, '') LIKE :buscar_notas)";
+            $searchClauses = [
+                'e.document_number LIKE :buscar_documento',
+                'e.first_name LIKE :buscar_nombre',
+                'e.last_name LIKE :buscar_apellido',
+                'e.external_agent_number LIKE :buscar_agente',
+                'CAST(e.legacy_position AS CHAR) LIKE :buscar_posicion',
+                'CAST(e.id AS CHAR) LIKE :buscar_id',
+            ];
             $like = '%' . $buscar . '%';
             $params[':buscar_documento'] = $like;
             $params[':buscar_nombre'] = $like;
@@ -257,9 +268,22 @@ final class OpcionesMultiplesModel
             $params[':buscar_agente'] = $like;
             $params[':buscar_posicion'] = $like;
             $params[':buscar_id'] = $like;
-            $params[':buscar_motivo'] = $like;
-            $params[':buscar_referencia'] = $like;
-            $params[':buscar_notas'] = $like;
+
+            $camposBusqueda = [
+                'police_operativity_reason' => 'motivo',
+                'police_operativity_reference' => 'referencia',
+                'police_operativity_notes' => 'notas',
+            ];
+            foreach ($camposBusqueda as $column => $suffix) {
+                if (!$this->hasEmployeeColumn($column)) {
+                    continue;
+                }
+                $placeholder = ':buscar_' . $suffix;
+                $searchClauses[] = "COALESCE(e.{$column}, '') LIKE {$placeholder}";
+                $params[$placeholder] = $like;
+            }
+
+            $where[] = '(' . implode(' OR ', $searchClauses) . ')';
         }
 
         [$tsMin, $tsMax] = $this->limitesNumericos(
@@ -325,6 +349,85 @@ final class OpcionesMultiplesModel
             'tiempo_rango' => 'e.promotion_date ASC, r.sort_order ASC',
             default => 'r.sort_order ASC, r.legacy_code ASC, u.legacy_code ASC, e.legacy_position ASC',
         };
+    }
+
+    private function fuenteOperatividad(): string
+    {
+        if ($this->hasEmployeeColumn('police_operativity_type')) {
+            return 'employees.police_operativity_type';
+        }
+
+        if ($this->hasEmployeeColumn('external_user_type')) {
+            return 'employees.external_user_type (compatibilidad temporal)';
+        }
+
+        return 'sin campo de operatividad disponible';
+    }
+
+    private function operatividadTipoSql(string $alias = 'e'): string
+    {
+        $column = null;
+        if ($this->hasEmployeeColumn('police_operativity_type')) {
+            $column = 'police_operativity_type';
+        } elseif ($this->hasEmployeeColumn('external_user_type')) {
+            $column = 'external_user_type';
+        }
+
+        if ($column === null) {
+            return "'SIN DEFINIR'";
+        }
+
+        return "CASE
+            WHEN TRIM(UPPER(COALESCE({$alias}.{$column}, ''))) IN ('OO', 'OA', 'NO')
+                THEN TRIM(UPPER({$alias}.{$column}))
+            ELSE 'SIN DEFINIR'
+        END";
+    }
+
+    private function employeeTextSql(string $column, string $alias = 'e'): string
+    {
+        if (!$this->hasEmployeeColumn($column)) {
+            return "''";
+        }
+
+        return "COALESCE({$alias}.{$column}, '')";
+    }
+
+    private function employeeDateSql(string $column, string $alias = 'e'): string
+    {
+        if (!$this->hasEmployeeColumn($column)) {
+            return 'NULL';
+        }
+
+        return "{$alias}.{$column}";
+    }
+
+    private function hasEmployeeColumn(string $column): bool
+    {
+        return isset($this->employeeColumns()[strtolower($column)]);
+    }
+
+    private function employeeColumns(): array
+    {
+        if ($this->employeeColumns !== null) {
+            return $this->employeeColumns;
+        }
+
+        $this->employeeColumns = [];
+
+        try {
+            $rows = $this->db->query('SHOW COLUMNS FROM employees')->fetchAll();
+            foreach ($rows as $row) {
+                $name = strtolower(trim((string) ($row['Field'] ?? '')));
+                if ($name !== '') {
+                    $this->employeeColumns[$name] = true;
+                }
+            }
+        } catch (\Throwable) {
+            // La consulta principal mostrará el error real si employees no existe.
+        }
+
+        return $this->employeeColumns;
     }
 
     private function catalogo(string $sql): array
