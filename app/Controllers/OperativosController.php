@@ -24,11 +24,11 @@ final class OperativosController
         $filtros = $this->filtrosDesdeRequest();
         $data = [
             'total' => 0,
+            'resumenOperatividad' => [],
             'porRango' => [],
             'porDependencia' => [],
             'porSexo' => [],
             'porEstatus' => [],
-            'porTipoPolicia' => [],
             'listado' => [],
         ];
         $error = null;
@@ -36,11 +36,11 @@ final class OperativosController
         try {
             $data = [
                 'total' => $this->model->total($filtros),
+                'resumenOperatividad' => $this->model->resumenOperatividad($filtros),
                 'porRango' => $this->model->porRango($filtros),
                 'porDependencia' => $this->model->porDependencia($filtros),
                 'porSexo' => $this->model->porSexo($filtros),
                 'porEstatus' => $this->model->porEstatus($filtros),
-                'porTipoPolicia' => $this->model->porTipoPolicia($filtros),
                 'listado' => $this->model->listado($filtros, 300),
             ];
         } catch (Throwable $e) {
@@ -48,7 +48,7 @@ final class OperativosController
         }
 
         View::render('reportes/operativos', [
-            'title' => 'Operativos',
+            'title' => 'Operatividad policial',
             'filtros' => $filtros,
             'catalogos' => $this->model->catalogos(),
             'data' => $data,
@@ -73,12 +73,15 @@ final class OperativosController
                 $row['sexo'] ?? '',
                 $row['estado_codigo'] ?? '',
                 $row['estado_nombre'] ?? '',
-                $row['tipo_policia'] ?? '',
-                $row['fecha_ingreso'] ?? '',
+                $row['operatividad_tipo'] ?? '',
+                $row['operatividad_motivo'] ?? '',
+                $row['operatividad_referencia'] ?? '',
+                $row['operatividad_fecha_efectiva'] ?? '',
+                $row['operatividad_notas'] ?? '',
             ];
         }, $rows);
 
-        Response::csv('srhn-operativos.csv', [
+        Response::csv('srhn-operatividad-policial.csv', [
             'N. empleado',
             'Cédula',
             'Funcionario',
@@ -89,13 +92,18 @@ final class OperativosController
             'Sexo',
             'Código estado',
             'Estado',
-            'Tipo policía',
-            'Fecha ingreso',
+            'Operatividad',
+            'Motivo',
+            'Referencia',
+            'Fecha efectiva',
+            'Notas',
         ], $csvRows);
     }
 
     private function filtrosDesdeRequest(): array
     {
+        $operatividad = strtoupper(trim((string) ($_GET['operatividad'] ?? $_GET['tipo_policia'] ?? '')));
+
         return [
             'rango_desde' => trim((string) ($_GET['rango_desde'] ?? '')),
             'rango_hasta' => trim((string) ($_GET['rango_hasta'] ?? '')),
@@ -103,7 +111,8 @@ final class OperativosController
             'sexo' => strtoupper(trim((string) ($_GET['sexo'] ?? 'A'))),
             'estado_modo' => trim((string) ($_GET['estado_modo'] ?? 'activo')),
             'estado' => trim((string) ($_GET['estado'] ?? '')),
-            'tipo_policia' => trim((string) ($_GET['tipo_policia'] ?? '')),
+            'operatividad' => $operatividad,
+            'motivo' => trim((string) ($_GET['motivo'] ?? '')),
             'buscar' => trim((string) ($_GET['buscar'] ?? '')),
         ];
     }
