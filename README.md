@@ -43,16 +43,29 @@ C:\xampp\htdocs\
 
 2. Copia el archivo `.env.example` como `.env`.
 
-3. Edita `.env` con los datos de tu base:
+3. Edita `.env` con las dos conexiones:
 
 ```env
+APP_BASE_PATH=/srhn-reportes-php/public
+
+# Base principal del sistema
 DB_HOST=127.0.0.1
 DB_PORT=3306
-DB_NAME=tu_base_srhn
+DB_NAME=rhhgith
 DB_USER=root
 DB_PASS=
-APP_BASE_PATH=/srhn-reportes-php/public
+DB_CHARSET=utf8mb4
+
+# Base nueva de RRHH usada temporalmente por los módulos de operatividad
+RRHH_DB_HOST=127.0.0.1
+RRHH_DB_PORT=3306
+RRHH_DB_NAME=rrhh2029
+RRHH_DB_USER=root
+RRHH_DB_PASS=
+RRHH_DB_CHARSET=utf8mb4
 ```
+
+La conexión principal `DB_*` continúa siendo usada por el sistema general. Los módulos `/reportes/operativos` y `/reportes/opciones-multiples` usan la conexión `RRHH_DB_*` para consultar `rrhh2029` sin modificar registros.
 
 4. Abre en el navegador:
 
