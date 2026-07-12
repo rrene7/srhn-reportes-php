@@ -16,7 +16,9 @@ final class OpcionesMultiplesController
 
     public function __construct()
     {
-        $this->model = new OpcionesMultiplesModel(Database::connect());
+        // Este módulo consulta temporalmente la base nueva de RRHH.
+        // La base principal del proyecto continúa definida por DB_NAME.
+        $this->model = new OpcionesMultiplesModel(Database::connect('rrhh'));
     }
 
     public function index(): void
