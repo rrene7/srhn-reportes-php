@@ -9,6 +9,13 @@ use PDOStatement;
 
 final class OperativosModel
 {
+    private const TIPOS_OPERATIVIDAD = [
+        ['codigo' => 'OO', 'nombre' => 'Operativo'],
+        ['codigo' => 'OA', 'nombre' => 'Operativo administrativo'],
+        ['codigo' => 'NO', 'nombre' => 'No operativo'],
+        ['codigo' => 'SIN DEFINIR', 'nombre' => 'Sin definir'],
+    ];
+
     public function __construct(private PDO $db) {}
 
     public function catalogos(): array
@@ -17,7 +24,7 @@ final class OperativosModel
             'rangos' => $this->db->query('SELECT legacy_code AS codigo, name AS nombre FROM ranks ORDER BY sort_order ASC, legacy_code ASC')->fetchAll(),
             'unidades' => $this->db->query('SELECT legacy_code AS codigo, name AS nombre FROM units ORDER BY legacy_code ASC, name ASC')->fetchAll(),
             'estados' => $this->db->query('SELECT legacy_code AS codigo, name AS nombre FROM statuses ORDER BY legacy_code ASC')->fetchAll(),
-            'tiposPolicia' => $this->tiposPolicia(),
+            'tiposOperatividad' => self::TIPOS_OPERATIVIDAD,
         ];
     }
 
@@ -30,6 +37,19 @@ final class OperativosModel
         $stmt->execute();
 
         return (int) $stmt->fetchColumn();
+    }
+
+    public function resumenOperatividad(array $filtros): array
+    {
+        $filtrosSinTipo = $filtros;
+        $filtrosSinTipo['operatividad'] = '';
+
+        return $this->agrupar(
+            $filtrosSinTipo,
+            "TRIM(UPPER(COALESCE(NULLIF(e.police_operativity_type, ''), 'SIN DEFINIR')))",
+            "CASE TRIM(UPPER(COALESCE(NULLIF(e.police_operativity_type, ''), 'SIN DEFINIR'))) WHEN 'OO' THEN 'Operativo' WHEN 'OA' THEN 'Operativo administrativo' WHEN 'NO' THEN 'No operativo' ELSE 'Sin definir' END",
+            "CASE codigo WHEN 'OO' THEN 1 WHEN 'OA' THEN 2 WHEN 'NO' THEN 3 ELSE 4 END"
+        );
     }
 
     public function porRango(array $filtros): array
@@ -52,11 +72,6 @@ final class OperativosModel
         return $this->agrupar($filtros, "COALESCE(s.legacy_code, e.legacy_status_code, '')", "COALESCE(s.name, e.external_user_status, e.external_agent_status, 'Sin estado')", 'codigo ASC, nombre ASC');
     }
 
-    public function porTipoPolicia(array $filtros): array
-    {
-        return $this->agrupar($filtros, "COALESCE(NULLIF(e.external_user_type, ''), 'SIN TIPO')", "COALESCE(NULLIF(e.external_user_type, ''), 'SIN TIPO')", 'codigo ASC');
-    }
-
     public function listado(array $filtros, int $limit = 300): array
     {
         [$where, $params] = $this->where($filtros);
@@ -72,14 +87,27 @@ final class OperativosModel
                 e.sex AS sexo,
                 COALESCE(s.legacy_code, e.legacy_status_code, '') AS estado_codigo,
                 COALESCE(s.name, e.external_user_status, e.external_agent_status, '') AS estado_nombre,
-                e.external_user_type AS tipo_policia,
-                e.hire_date AS fecha_ingreso
+                TRIM(UPPER(COALESCE(NULLIF(e.police_operativity_type, ''), 'SIN DEFINIR'))) AS operatividad_tipo,
+                COALESCE(e.police_operativity_reason, '') AS operatividad_motivo,
+                COALESCE(e.police_operativity_reference, '') AS operatividad_referencia,
+                e.police_operativity_effective_date AS operatividad_fecha_efectiva,
+                COALESCE(e.police_operativity_notes, '') AS operatividad_notas
             FROM employees e
             LEFT JOIN ranks r ON r.id = e.rank_id
             LEFT JOIN units u ON u.id = e.unit_id
             LEFT JOIN statuses s ON s.id = e.status_id
             WHERE {$where}
-            ORDER BY u.legacy_code ASC, r.sort_order ASC, e.last_name ASC, e.first_name ASC
+            ORDER BY
+                CASE TRIM(UPPER(COALESCE(e.police_operativity_type, '')))
+                    WHEN 'OO' THEN 1
+                    WHEN 'OA' THEN 2
+                    WHEN 'NO' THEN 3
+                    ELSE 4
+                END,
+                u.legacy_code ASC,
+                r.sort_order ASC,
+                e.last_name ASC,
+                e.first_name ASC
             LIMIT :limit
         ";
         $params[':limit'] = ['value' => max(1, min($limit, 1000)), 'type' => PDO::PARAM_INT];
@@ -89,19 +117,6 @@ final class OperativosModel
         $stmt->execute();
 
         return $stmt->fetchAll();
-    }
-
-    private function tiposPolicia(): array
-    {
-        $sql = "
-            SELECT DISTINCT e.external_user_type AS codigo, e.external_user_type AS nombre
-            FROM employees e
-            WHERE e.external_user_type IS NOT NULL AND e.external_user_type <> ''
-            ORDER BY e.external_user_type ASC
-            LIMIT 100
-        ";
-
-        return $this->db->query($sql)->fetchAll();
     }
 
     private function agrupar(array $filtros, string $codigoSql, string $nombreSql, string $orderBy): array
@@ -150,10 +165,18 @@ final class OperativosModel
             $params[':sexo'] = $sexo;
         }
 
-        $tipoPolicia = trim((string) ($filtros['tipo_policia'] ?? ''));
-        if ($tipoPolicia !== '') {
-            $where[] = "COALESCE(e.external_user_type, '') = :tipo_policia";
-            $params[':tipo_policia'] = $tipoPolicia;
+        $operatividad = strtoupper(trim((string) ($filtros['operatividad'] ?? '')));
+        if (in_array($operatividad, ['OO', 'OA', 'NO'], true)) {
+            $where[] = "TRIM(UPPER(COALESCE(e.police_operativity_type, ''))) = :operatividad";
+            $params[':operatividad'] = $operatividad;
+        } elseif ($operatividad === 'SIN DEFINIR') {
+            $where[] = "TRIM(COALESCE(e.police_operativity_type, '')) = ''";
+        }
+
+        $motivo = trim((string) ($filtros['motivo'] ?? ''));
+        if ($motivo !== '') {
+            $where[] = "COALESCE(e.police_operativity_reason, '') LIKE :motivo";
+            $params[':motivo'] = '%' . $motivo . '%';
         }
 
         $estadoModo = trim((string) ($filtros['estado_modo'] ?? 'activo'));
@@ -167,7 +190,7 @@ final class OperativosModel
 
         $buscar = trim((string) ($filtros['buscar'] ?? ''));
         if ($buscar !== '') {
-            $where[] = "(e.document_number LIKE :buscar OR e.first_name LIKE :buscar OR e.last_name LIKE :buscar OR e.external_agent_number LIKE :buscar OR CAST(e.legacy_position AS CHAR) LIKE :buscar)";
+            $where[] = "(e.document_number LIKE :buscar OR e.first_name LIKE :buscar OR e.last_name LIKE :buscar OR e.external_agent_number LIKE :buscar OR CAST(e.legacy_position AS CHAR) LIKE :buscar OR COALESCE(e.police_operativity_reason, '') LIKE :buscar OR COALESCE(e.police_operativity_reference, '') LIKE :buscar OR COALESCE(e.police_operativity_notes, '') LIKE :buscar)";
             $params[':buscar'] = '%' . $buscar . '%';
         }
 
