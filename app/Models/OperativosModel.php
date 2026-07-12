@@ -16,6 +16,8 @@ final class OperativosModel
         ['codigo' => 'SIN DEFINIR', 'nombre' => 'Sin definir'],
     ];
 
+    private ?array $employeeColumns = null;
+
     public function __construct(private PDO $db) {}
 
     public function catalogos(): array
@@ -25,6 +27,8 @@ final class OperativosModel
             'unidades' => $this->db->query('SELECT legacy_code AS codigo, name AS nombre FROM units ORDER BY legacy_code ASC, name ASC')->fetchAll(),
             'estados' => $this->db->query('SELECT legacy_code AS codigo, name AS nombre FROM statuses ORDER BY legacy_code ASC')->fetchAll(),
             'tiposOperatividad' => self::TIPOS_OPERATIVIDAD,
+            'fuenteOperatividad' => $this->fuenteOperatividad(),
+            'camposOperatividadNuevos' => $this->hasEmployeeColumn('police_operativity_type'),
         ];
     }
 
@@ -43,11 +47,12 @@ final class OperativosModel
     {
         $filtrosSinTipo = $filtros;
         $filtrosSinTipo['operatividad'] = '';
+        $tipoExpr = $this->operatividadTipoSql();
 
         return $this->agrupar(
             $filtrosSinTipo,
-            "TRIM(UPPER(COALESCE(NULLIF(e.police_operativity_type, ''), 'SIN DEFINIR')))",
-            "CASE TRIM(UPPER(COALESCE(NULLIF(e.police_operativity_type, ''), 'SIN DEFINIR'))) WHEN 'OO' THEN 'Operativo' WHEN 'OA' THEN 'Operativo administrativo' WHEN 'NO' THEN 'No operativo' ELSE 'Sin definir' END",
+            $tipoExpr,
+            "CASE {$tipoExpr} WHEN 'OO' THEN 'Operativo' WHEN 'OA' THEN 'Operativo administrativo' WHEN 'NO' THEN 'No operativo' ELSE 'Sin definir' END",
             "CASE codigo WHEN 'OO' THEN 1 WHEN 'OA' THEN 2 WHEN 'NO' THEN 3 ELSE 4 END"
         );
     }
@@ -75,6 +80,13 @@ final class OperativosModel
     public function listado(array $filtros, int $limit = 300): array
     {
         [$where, $params] = $this->where($filtros);
+
+        $tipoExpr = $this->operatividadTipoSql();
+        $motivoExpr = $this->employeeTextSql('police_operativity_reason');
+        $referenciaExpr = $this->employeeTextSql('police_operativity_reference');
+        $fechaExpr = $this->employeeDateSql('police_operativity_effective_date');
+        $notasExpr = $this->employeeTextSql('police_operativity_notes');
+
         $sql = "
             SELECT
                 COALESCE(CAST(e.legacy_position AS CHAR), e.external_agent_number, CAST(e.id AS CHAR)) AS nemp,
@@ -87,18 +99,18 @@ final class OperativosModel
                 e.sex AS sexo,
                 COALESCE(s.legacy_code, e.legacy_status_code, '') AS estado_codigo,
                 COALESCE(s.name, e.external_user_status, e.external_agent_status, '') AS estado_nombre,
-                TRIM(UPPER(COALESCE(NULLIF(e.police_operativity_type, ''), 'SIN DEFINIR'))) AS operatividad_tipo,
-                COALESCE(e.police_operativity_reason, '') AS operatividad_motivo,
-                COALESCE(e.police_operativity_reference, '') AS operatividad_referencia,
-                e.police_operativity_effective_date AS operatividad_fecha_efectiva,
-                COALESCE(e.police_operativity_notes, '') AS operatividad_notas
+                {$tipoExpr} AS operatividad_tipo,
+                {$motivoExpr} AS operatividad_motivo,
+                {$referenciaExpr} AS operatividad_referencia,
+                {$fechaExpr} AS operatividad_fecha_efectiva,
+                {$notasExpr} AS operatividad_notas
             FROM employees e
             LEFT JOIN ranks r ON r.id = e.rank_id
             LEFT JOIN units u ON u.id = e.unit_id
             LEFT JOIN statuses s ON s.id = e.status_id
             WHERE {$where}
             ORDER BY
-                CASE TRIM(UPPER(COALESCE(e.police_operativity_type, '')))
+                CASE {$tipoExpr}
                     WHEN 'OO' THEN 1
                     WHEN 'OA' THEN 2
                     WHEN 'NO' THEN 3
@@ -135,8 +147,10 @@ final class OperativosModel
         $where = ['1 = 1'];
         $params = [];
 
-        $rangoDesde = trim((string) ($filtros['rango_desde'] ?? ''));
-        $rangoHasta = trim((string) ($filtros['rango_hasta'] ?? ''));
+        [$rangoDesde, $rangoHasta] = $this->limitesNumericos(
+            trim((string) ($filtros['rango_desde'] ?? '')),
+            trim((string) ($filtros['rango_hasta'] ?? ''))
+        );
         if ($rangoDesde !== '') {
             $where[] = 'CAST(COALESCE(r.legacy_code, 0) AS UNSIGNED) >= CAST(:rango_desde AS UNSIGNED)';
             $params[':rango_desde'] = $rangoDesde;
@@ -166,15 +180,16 @@ final class OperativosModel
         }
 
         $operatividad = strtoupper(trim((string) ($filtros['operatividad'] ?? '')));
+        $tipoExpr = $this->operatividadTipoSql();
         if (in_array($operatividad, ['OO', 'OA', 'NO'], true)) {
-            $where[] = "TRIM(UPPER(COALESCE(e.police_operativity_type, ''))) = :operatividad";
+            $where[] = "{$tipoExpr} = :operatividad";
             $params[':operatividad'] = $operatividad;
         } elseif ($operatividad === 'SIN DEFINIR') {
-            $where[] = "TRIM(COALESCE(e.police_operativity_type, '')) = ''";
+            $where[] = "{$tipoExpr} = 'SIN DEFINIR'";
         }
 
         $motivo = trim((string) ($filtros['motivo'] ?? ''));
-        if ($motivo !== '') {
+        if ($motivo !== '' && $this->hasEmployeeColumn('police_operativity_reason')) {
             $where[] = "COALESCE(e.police_operativity_reason, '') LIKE :motivo";
             $params[':motivo'] = '%' . $motivo . '%';
         }
@@ -190,11 +205,126 @@ final class OperativosModel
 
         $buscar = trim((string) ($filtros['buscar'] ?? ''));
         if ($buscar !== '') {
-            $where[] = "(e.document_number LIKE :buscar OR e.first_name LIKE :buscar OR e.last_name LIKE :buscar OR e.external_agent_number LIKE :buscar OR CAST(e.legacy_position AS CHAR) LIKE :buscar OR COALESCE(e.police_operativity_reason, '') LIKE :buscar OR COALESCE(e.police_operativity_reference, '') LIKE :buscar OR COALESCE(e.police_operativity_notes, '') LIKE :buscar)";
-            $params[':buscar'] = '%' . $buscar . '%';
+            $searchClauses = [
+                'e.document_number LIKE :buscar_documento',
+                'e.first_name LIKE :buscar_nombre',
+                'e.last_name LIKE :buscar_apellido',
+                'e.external_agent_number LIKE :buscar_agente',
+                'CAST(e.legacy_position AS CHAR) LIKE :buscar_posicion',
+            ];
+            $like = '%' . $buscar . '%';
+            $params[':buscar_documento'] = $like;
+            $params[':buscar_nombre'] = $like;
+            $params[':buscar_apellido'] = $like;
+            $params[':buscar_agente'] = $like;
+            $params[':buscar_posicion'] = $like;
+
+            $camposBusqueda = [
+                'police_operativity_reason' => 'motivo',
+                'police_operativity_reference' => 'referencia',
+                'police_operativity_notes' => 'notas',
+            ];
+            foreach ($camposBusqueda as $column => $suffix) {
+                if (!$this->hasEmployeeColumn($column)) {
+                    continue;
+                }
+                $placeholder = ':buscar_' . $suffix;
+                $searchClauses[] = "COALESCE(e.{$column}, '') LIKE {$placeholder}";
+                $params[$placeholder] = $like;
+            }
+
+            $where[] = '(' . implode(' OR ', $searchClauses) . ')';
         }
 
         return [implode(' AND ', $where), $params];
+    }
+
+    private function limitesNumericos(string $desde, string $hasta): array
+    {
+        if ($desde !== '' && $hasta !== '' && is_numeric($desde) && is_numeric($hasta) && (float) $desde > (float) $hasta) {
+            return [$hasta, $desde];
+        }
+
+        return [$desde, $hasta];
+    }
+
+    private function fuenteOperatividad(): string
+    {
+        if ($this->hasEmployeeColumn('police_operativity_type')) {
+            return 'employees.police_operativity_type';
+        }
+
+        if ($this->hasEmployeeColumn('external_user_type')) {
+            return 'employees.external_user_type (compatibilidad temporal)';
+        }
+
+        return 'sin campo de operatividad disponible';
+    }
+
+    private function operatividadTipoSql(string $alias = 'e'): string
+    {
+        $column = null;
+        if ($this->hasEmployeeColumn('police_operativity_type')) {
+            $column = 'police_operativity_type';
+        } elseif ($this->hasEmployeeColumn('external_user_type')) {
+            $column = 'external_user_type';
+        }
+
+        if ($column === null) {
+            return "'SIN DEFINIR'";
+        }
+
+        return "CASE
+            WHEN TRIM(UPPER(COALESCE({$alias}.{$column}, ''))) IN ('OO', 'OA', 'NO')
+                THEN TRIM(UPPER({$alias}.{$column}))
+            ELSE 'SIN DEFINIR'
+        END";
+    }
+
+    private function employeeTextSql(string $column, string $alias = 'e'): string
+    {
+        if (!$this->hasEmployeeColumn($column)) {
+            return "''";
+        }
+
+        return "COALESCE({$alias}.{$column}, '')";
+    }
+
+    private function employeeDateSql(string $column, string $alias = 'e'): string
+    {
+        if (!$this->hasEmployeeColumn($column)) {
+            return 'NULL';
+        }
+
+        return "{$alias}.{$column}";
+    }
+
+    private function hasEmployeeColumn(string $column): bool
+    {
+        return isset($this->employeeColumns()[strtolower($column)]);
+    }
+
+    private function employeeColumns(): array
+    {
+        if ($this->employeeColumns !== null) {
+            return $this->employeeColumns;
+        }
+
+        $this->employeeColumns = [];
+
+        try {
+            $rows = $this->db->query('SHOW COLUMNS FROM employees')->fetchAll();
+            foreach ($rows as $row) {
+                $name = strtolower(trim((string) ($row['Field'] ?? '')));
+                if ($name !== '') {
+                    $this->employeeColumns[$name] = true;
+                }
+            }
+        } catch (\Throwable) {
+            // La consulta principal mostrará el error real si employees no existe.
+        }
+
+        return $this->employeeColumns;
     }
 
     private function bindParams(PDOStatement $stmt, array $params): void
