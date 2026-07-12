@@ -37,7 +37,7 @@ final class OpcionesMultiplesController
 
                 if ((int) $total === 0 && strtolower((string) ($filtros['tipo_policia'] ?? 'todos')) !== 'todos') {
                     $tipo = strtoupper((string) ($filtros['tipo_policia'] ?? ''));
-                    $error = 'Sin resultados con Tipo de policía ' . $tipo . '. Mantenga los demás filtros y pruebe Tipo de policía = Todos para confirmar si el resto de filtros sí trae datos.';
+                    $error = 'No se encontraron resultados con la clasificación operativa ' . $tipo . '. Mantenga los demás filtros y pruebe la opción Todas.';
                 }
             } catch (Throwable $e) {
                 $error = $e->getMessage();
@@ -87,21 +87,39 @@ final class OpcionesMultiplesController
         $campos = array_values(array_filter(array_map('strval', $campos)));
         $campos = array_slice($campos, 0, 4);
 
+        [$rangoInicial, $rangoFinal] = $this->ordenarLimites(
+            trim((string) ($_GET['rango_inicial'] ?? '')),
+            trim((string) ($_GET['rango_final'] ?? ''))
+        );
+        [$tsMin, $tsMax] = $this->ordenarLimites(
+            trim((string) ($_GET['ts_min'] ?? '')),
+            trim((string) ($_GET['ts_max'] ?? ''))
+        );
+        [$trMin, $trMax] = $this->ordenarLimites(
+            trim((string) ($_GET['tr_min'] ?? '')),
+            trim((string) ($_GET['tr_max'] ?? ''))
+        );
+
+        $tipoPolicia = strtoupper(trim((string) ($_GET['tipo_policia'] ?? 'TODOS')));
+        if ($tipoPolicia === '') {
+            $tipoPolicia = 'TODOS';
+        }
+
         return [
             'reporte_por' => trim((string) ($_GET['reporte_por'] ?? 'ambos')),
-            'rango_inicial' => trim((string) ($_GET['rango_inicial'] ?? '')),
-            'rango_final' => trim((string) ($_GET['rango_final'] ?? '')),
+            'rango_inicial' => $rangoInicial,
+            'rango_final' => $rangoFinal,
             'unidad' => trim((string) ($_GET['unidad'] ?? '')),
-            'sexo' => trim((string) ($_GET['sexo'] ?? 'A')),
-            'tipo_policia' => trim((string) ($_GET['tipo_policia'] ?? 'todos')),
+            'sexo' => strtoupper(trim((string) ($_GET['sexo'] ?? 'A'))),
+            'tipo_policia' => strtolower($tipoPolicia) === 'todos' ? 'todos' : $tipoPolicia,
             'estado_modo' => trim((string) ($_GET['estado_modo'] ?? 'todos')),
             'estado' => trim((string) ($_GET['estado'] ?? '')),
             'fecha_modo' => trim((string) ($_GET['fecha_modo'] ?? 'actual')),
             'fecha_corte' => trim((string) ($_GET['fecha_corte'] ?? '')),
-            'ts_min' => trim((string) ($_GET['ts_min'] ?? '')),
-            'ts_max' => trim((string) ($_GET['ts_max'] ?? '')),
-            'tr_min' => trim((string) ($_GET['tr_min'] ?? '')),
-            'tr_max' => trim((string) ($_GET['tr_max'] ?? '')),
+            'ts_min' => $tsMin,
+            'ts_max' => $tsMax,
+            'tr_min' => $trMin,
+            'tr_max' => $trMax,
             'ordenar_por' => trim((string) ($_GET['ordenar_por'] ?? 'rango')),
             'tipo_papel' => trim((string) ($_GET['tipo_papel'] ?? 'carta')),
             'clasificacion' => trim((string) ($_GET['clasificacion'] ?? 'ambos')),
@@ -110,6 +128,15 @@ final class OpcionesMultiplesController
             'buscar' => trim((string) ($_GET['buscar'] ?? '')),
             'campos' => $campos,
         ];
+    }
+
+    private function ordenarLimites(string $desde, string $hasta): array
+    {
+        if ($desde !== '' && $hasta !== '' && is_numeric($desde) && is_numeric($hasta) && (float) $desde > (float) $hasta) {
+            return [$hasta, $desde];
+        }
+
+        return [$desde, $hasta];
     }
 
     private function debeGenerar(): bool
