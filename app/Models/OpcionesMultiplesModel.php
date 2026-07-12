@@ -16,8 +16,12 @@ final class OpcionesMultiplesModel
         'fecha_ascenso' => 'F. Ascenso',
         'fecha_nacimiento' => 'F. Nacimiento',
         'fecha_jubilacion' => 'F. Jubilación futura',
-        'tipo_policia' => 'Tipo policía',
+        'tipo_policia' => 'Clasificación operativa',
         'estado' => 'Estatus',
+        'operatividad_motivo' => 'Motivo operatividad',
+        'operatividad_referencia' => 'Referencia operatividad',
+        'operatividad_fecha' => 'Fecha efectiva',
+        'operatividad_notas' => 'Notas operatividad',
     ];
 
     public function __construct(private PDO $db) {}
@@ -28,7 +32,23 @@ final class OpcionesMultiplesModel
             'rangos' => $this->catalogo('SELECT legacy_code AS codigo, name AS nombre FROM ranks ORDER BY sort_order ASC, legacy_code ASC'),
             'unidades' => $this->catalogo('SELECT legacy_code AS codigo, name AS nombre FROM units ORDER BY legacy_code ASC, name ASC'),
             'estados' => $this->catalogo('SELECT legacy_code AS codigo, name AS nombre FROM statuses ORDER BY legacy_code ASC'),
-            'tiposPolicia' => $this->catalogo("SELECT TRIM(UPPER(COALESCE(NULLIF(external_user_type, ''), 'SIN DATO'))) AS codigo, TRIM(UPPER(COALESCE(NULLIF(external_user_type, ''), 'SIN DATO'))) AS nombre, COUNT(*) AS total FROM employees GROUP BY codigo, nombre ORDER BY nombre ASC"),
+            'tiposPolicia' => $this->catalogo("
+                SELECT tipos.codigo, tipos.nombre, COUNT(e.id) AS total
+                FROM (
+                    SELECT 'OO' AS codigo, 'Operativo' AS nombre, 1 AS orden
+                    UNION ALL SELECT 'OA', 'Operativo administrativo', 2
+                    UNION ALL SELECT 'NO', 'No operativo', 3
+                    UNION ALL SELECT 'SIN DEFINIR', 'Sin clasificación', 4
+                ) tipos
+                LEFT JOIN employees e
+                    ON CASE
+                        WHEN TRIM(UPPER(COALESCE(e.police_operativity_type, ''))) IN ('OO', 'OA', 'NO')
+                            THEN TRIM(UPPER(e.police_operativity_type))
+                        ELSE 'SIN DEFINIR'
+                    END = tipos.codigo
+                GROUP BY tipos.codigo, tipos.nombre, tipos.orden
+                ORDER BY tipos.orden ASC
+            "),
             'camposOpcionales' => self::CAMPOS_OPCIONALES,
         ];
     }
@@ -54,7 +74,15 @@ final class OpcionesMultiplesModel
                 COALESCE(s.legacy_code, e.legacy_status_code, '') AS estado_codigo,
                 COALESCE(s.name, e.external_user_status, e.external_agent_status, '') AS estado_nombre,
                 CONCAT(COALESCE(s.legacy_code, e.legacy_status_code, ''), ' - ', COALESCE(s.name, e.external_user_status, e.external_agent_status, '')) AS estado,
-                TRIM(UPPER(COALESCE(NULLIF(e.external_user_type, ''), 'SIN DATO'))) AS tipo_policia,
+                CASE
+                    WHEN TRIM(UPPER(COALESCE(e.police_operativity_type, ''))) IN ('OO', 'OA', 'NO')
+                        THEN TRIM(UPPER(e.police_operativity_type))
+                    ELSE 'SIN DEFINIR'
+                END AS tipo_policia,
+                COALESCE(e.police_operativity_reason, '') AS operatividad_motivo,
+                COALESCE(e.police_operativity_reference, '') AS operatividad_referencia,
+                e.police_operativity_effective_date AS operatividad_fecha,
+                COALESCE(e.police_operativity_notes, '') AS operatividad_notas,
                 e.external_profile_id AS posicion_mi,
                 e.hire_date AS fecha_ingreso,
                 e.promotion_date AS fecha_ascenso,
@@ -100,6 +128,7 @@ final class OpcionesMultiplesModel
         $stmt = $this->db->prepare($sql);
         $this->bindParams($stmt, $params);
         $stmt->execute();
+
         return (int) $stmt->fetchColumn();
     }
 
@@ -122,20 +151,32 @@ final class OpcionesMultiplesModel
         $stmt = $this->db->prepare($sql);
         $this->bindParams($stmt, $params);
         $stmt->execute();
+
         return $stmt->fetchAll();
     }
 
     public function resumen(array $rows): array
     {
         $resumen = ['total' => count($rows), 'masculino' => 0, 'femenino' => 0, 'activos' => 0, 'otros_estados' => 0];
+
         foreach ($rows as $row) {
             $sexo = strtoupper((string) ($row['sexo'] ?? ''));
-            if ($sexo === 'M') { $resumen['masculino']++; }
-            if ($sexo === 'F') { $resumen['femenino']++; }
-            $estadoCodigo = (string) ($row['estado_codigo'] ?? '');
-            $estadoNombre = strtoupper((string) ($row['estado_nombre'] ?? ''));
-            if ($estadoCodigo === '10' || $estadoNombre === 'ACTIVO') { $resumen['activos']++; } else { $resumen['otros_estados']++; }
+            if ($sexo === 'M') {
+                $resumen['masculino']++;
+            }
+            if ($sexo === 'F') {
+                $resumen['femenino']++;
+            }
+
+            $estadoCodigo = trim((string) ($row['estado_codigo'] ?? ''));
+            $estadoNombre = strtoupper(trim((string) ($row['estado_nombre'] ?? '')));
+            if (in_array($estadoCodigo, ['10', '010'], true) || str_starts_with($estadoNombre, 'ACTIVO') || str_contains($estadoNombre, 'EN SERVICIO')) {
+                $resumen['activos']++;
+            } else {
+                $resumen['otros_estados']++;
+            }
         }
+
         return $resumen;
     }
 
@@ -150,9 +191,11 @@ final class OpcionesMultiplesModel
             'unidad_nombre' => 'Ubicación',
             'sexo' => 'Sexo',
         ];
+
         foreach ($campos as $campo) {
             $columnas[$campo] = self::CAMPOS_OPCIONALES[$campo];
         }
+
         return $columnas;
     }
 
@@ -162,62 +205,113 @@ final class OpcionesMultiplesModel
         $params = [];
         $fechaCorte = $this->fechaCorte($filtros);
 
-        $rangoInicial = trim((string) ($filtros['rango_inicial'] ?? ''));
-        $rangoFinal = trim((string) ($filtros['rango_final'] ?? ''));
-        if ($rangoInicial !== '') { $where[] = 'CAST(COALESCE(r.legacy_code, 0) AS UNSIGNED) >= CAST(:rango_inicial AS UNSIGNED)'; $params[':rango_inicial'] = $rangoInicial; }
-        if ($rangoFinal !== '') { $where[] = 'CAST(COALESCE(r.legacy_code, 0) AS UNSIGNED) <= CAST(:rango_final AS UNSIGNED)'; $params[':rango_final'] = $rangoFinal; }
+        [$rangoInicial, $rangoFinal] = $this->limitesNumericos(
+            trim((string) ($filtros['rango_inicial'] ?? '')),
+            trim((string) ($filtros['rango_final'] ?? ''))
+        );
+        if ($rangoInicial !== '') {
+            $where[] = 'CAST(COALESCE(r.legacy_code, 0) AS UNSIGNED) >= CAST(:rango_inicial AS UNSIGNED)';
+            $params[':rango_inicial'] = $rangoInicial;
+        }
+        if ($rangoFinal !== '') {
+            $where[] = 'CAST(COALESCE(r.legacy_code, 0) AS UNSIGNED) <= CAST(:rango_final AS UNSIGNED)';
+            $params[':rango_final'] = $rangoFinal;
+        }
 
         $unidad = trim((string) ($filtros['unidad'] ?? ''));
-        if ($unidad !== '') { $where[] = 'COALESCE(u.legacy_code, \'\') = :unidad'; $params[':unidad'] = $unidad; }
+        if ($unidad !== '') {
+            $where[] = "COALESCE(u.legacy_code, '') = :unidad";
+            $params[':unidad'] = $unidad;
+        }
 
         $sexo = strtoupper(trim((string) ($filtros['sexo'] ?? 'A')));
-        if (in_array($sexo, ['M', 'F'], true)) { $where[] = 'TRIM(UPPER(COALESCE(e.sex, \'\'))) = :sexo'; $params[':sexo'] = $sexo; }
+        if (in_array($sexo, ['M', 'F'], true)) {
+            $where[] = "TRIM(UPPER(COALESCE(e.sex, ''))) = :sexo";
+            $params[':sexo'] = $sexo;
+        }
 
-        $tipoPolicia = strtoupper(trim((string) ($filtros['tipo_policia'] ?? 'todos')));
-        if ($tipoPolicia !== '' && $tipoPolicia !== 'TODOS') {
-            $where[] = "TRIM(UPPER(COALESCE(NULLIF(e.external_user_type, ''), 'SIN DATO'))) = :tipo_policia";
+        $tipoPolicia = strtoupper(trim((string) ($filtros['tipo_policia'] ?? 'TODOS')));
+        if (in_array($tipoPolicia, ['OO', 'OA', 'NO'], true)) {
+            $where[] = "TRIM(UPPER(COALESCE(e.police_operativity_type, ''))) = :tipo_policia";
             $params[':tipo_policia'] = $tipoPolicia;
+        } elseif ($tipoPolicia === 'SIN DEFINIR') {
+            $where[] = "TRIM(COALESCE(e.police_operativity_type, '')) = ''";
         }
 
         $estadoModo = trim((string) ($filtros['estado_modo'] ?? 'todos'));
         $estado = trim((string) ($filtros['estado'] ?? ''));
         if ($estadoModo === 'activo') {
-            $where[] = "(COALESCE(s.legacy_code, e.legacy_status_code, '') = '10' OR UPPER(COALESCE(s.name, e.external_user_status, e.external_agent_status, '')) = 'ACTIVO')";
+            $where[] = "(TRIM(COALESCE(s.legacy_code, e.legacy_status_code, '')) IN ('10', '010') OR UPPER(COALESCE(s.name, e.external_user_status, e.external_agent_status, '')) LIKE 'ACTIVO%' OR UPPER(COALESCE(s.name, e.external_user_status, e.external_agent_status, '')) LIKE '%EN SERVICIO%')";
         } elseif ($estadoModo === 'especifico' && $estado !== '') {
-            $where[] = 'COALESCE(s.legacy_code, e.legacy_status_code, \'\') = :estado';
+            $where[] = "TRIM(COALESCE(s.legacy_code, e.legacy_status_code, '')) = :estado";
             $params[':estado'] = $estado;
         }
 
         $buscar = trim((string) ($filtros['buscar'] ?? ''));
         if ($buscar !== '') {
-            $where[] = '(e.document_number LIKE :buscar_documento OR e.first_name LIKE :buscar_nombre OR e.last_name LIKE :buscar_apellido OR e.external_agent_number LIKE :buscar_agente OR CAST(e.legacy_position AS CHAR) LIKE :buscar_posicion OR CAST(e.id AS CHAR) LIKE :buscar_id)';
-            $like = $buscar . '%';
+            $where[] = "(e.document_number LIKE :buscar_documento OR e.first_name LIKE :buscar_nombre OR e.last_name LIKE :buscar_apellido OR e.external_agent_number LIKE :buscar_agente OR CAST(e.legacy_position AS CHAR) LIKE :buscar_posicion OR CAST(e.id AS CHAR) LIKE :buscar_id OR COALESCE(e.police_operativity_reason, '') LIKE :buscar_motivo OR COALESCE(e.police_operativity_reference, '') LIKE :buscar_referencia OR COALESCE(e.police_operativity_notes, '') LIKE :buscar_notas)";
+            $like = '%' . $buscar . '%';
             $params[':buscar_documento'] = $like;
             $params[':buscar_nombre'] = $like;
             $params[':buscar_apellido'] = $like;
             $params[':buscar_agente'] = $like;
             $params[':buscar_posicion'] = $like;
             $params[':buscar_id'] = $like;
+            $params[':buscar_motivo'] = $like;
+            $params[':buscar_referencia'] = $like;
+            $params[':buscar_notas'] = $like;
         }
 
-        $tsMin = trim((string) ($filtros['ts_min'] ?? ''));
-        $tsMax = trim((string) ($filtros['ts_max'] ?? ''));
-        if ($tsMin !== '') { $where[] = 'e.hire_date IS NOT NULL AND TIMESTAMPDIFF(YEAR, e.hire_date, :fecha_corte_servicio_min) >= :ts_min'; $params[':fecha_corte_servicio_min'] = $fechaCorte; $params[':ts_min'] = ['value' => (int) $tsMin, 'type' => PDO::PARAM_INT]; }
-        if ($tsMax !== '') { $where[] = 'e.hire_date IS NOT NULL AND TIMESTAMPDIFF(YEAR, e.hire_date, :fecha_corte_servicio_max) <= :ts_max'; $params[':fecha_corte_servicio_max'] = $fechaCorte; $params[':ts_max'] = ['value' => (int) $tsMax, 'type' => PDO::PARAM_INT]; }
+        [$tsMin, $tsMax] = $this->limitesNumericos(
+            trim((string) ($filtros['ts_min'] ?? '')),
+            trim((string) ($filtros['ts_max'] ?? ''))
+        );
+        if ($tsMin !== '') {
+            $where[] = 'e.hire_date IS NOT NULL AND TIMESTAMPDIFF(YEAR, e.hire_date, :fecha_corte_servicio_min) >= :ts_min';
+            $params[':fecha_corte_servicio_min'] = $fechaCorte;
+            $params[':ts_min'] = ['value' => (int) $tsMin, 'type' => PDO::PARAM_INT];
+        }
+        if ($tsMax !== '') {
+            $where[] = 'e.hire_date IS NOT NULL AND TIMESTAMPDIFF(YEAR, e.hire_date, :fecha_corte_servicio_max) <= :ts_max';
+            $params[':fecha_corte_servicio_max'] = $fechaCorte;
+            $params[':ts_max'] = ['value' => (int) $tsMax, 'type' => PDO::PARAM_INT];
+        }
 
-        $trMin = trim((string) ($filtros['tr_min'] ?? ''));
-        $trMax = trim((string) ($filtros['tr_max'] ?? ''));
-        if ($trMin !== '') { $where[] = 'e.promotion_date IS NOT NULL AND TIMESTAMPDIFF(YEAR, e.promotion_date, :fecha_corte_rango_min) >= :tr_min'; $params[':fecha_corte_rango_min'] = $fechaCorte; $params[':tr_min'] = ['value' => (int) $trMin, 'type' => PDO::PARAM_INT]; }
-        if ($trMax !== '') { $where[] = 'e.promotion_date IS NOT NULL AND TIMESTAMPDIFF(YEAR, e.promotion_date, :fecha_corte_rango_max) <= :tr_max'; $params[':fecha_corte_rango_max'] = $fechaCorte; $params[':tr_max'] = ['value' => (int) $trMax, 'type' => PDO::PARAM_INT]; }
+        [$trMin, $trMax] = $this->limitesNumericos(
+            trim((string) ($filtros['tr_min'] ?? '')),
+            trim((string) ($filtros['tr_max'] ?? ''))
+        );
+        if ($trMin !== '') {
+            $where[] = 'e.promotion_date IS NOT NULL AND TIMESTAMPDIFF(YEAR, e.promotion_date, :fecha_corte_rango_min) >= :tr_min';
+            $params[':fecha_corte_rango_min'] = $fechaCorte;
+            $params[':tr_min'] = ['value' => (int) $trMin, 'type' => PDO::PARAM_INT];
+        }
+        if ($trMax !== '') {
+            $where[] = 'e.promotion_date IS NOT NULL AND TIMESTAMPDIFF(YEAR, e.promotion_date, :fecha_corte_rango_max) <= :tr_max';
+            $params[':fecha_corte_rango_max'] = $fechaCorte;
+            $params[':tr_max'] = ['value' => (int) $trMax, 'type' => PDO::PARAM_INT];
+        }
 
         return [implode(' AND ', $where), $params];
+    }
+
+    private function limitesNumericos(string $desde, string $hasta): array
+    {
+        if ($desde !== '' && $hasta !== '' && is_numeric($desde) && is_numeric($hasta) && (float) $desde > (float) $hasta) {
+            return [$hasta, $desde];
+        }
+
+        return [$desde, $hasta];
     }
 
     private function fechaCorte(array $filtros): string
     {
         $fechaModo = (string) ($filtros['fecha_modo'] ?? 'actual');
         $fecha = (string) ($filtros['fecha_corte'] ?? '');
-        if ($fechaModo === 'especificar' && preg_match('/^\d{4}-\d{2}-\d{2}$/', $fecha)) { return $fecha; }
+        if ($fechaModo === 'especificar' && preg_match('/^\d{4}-\d{2}-\d{2}$/', $fecha)) {
+            return $fecha;
+        }
+
         return date('Y-m-d');
     }
 
@@ -235,13 +329,21 @@ final class OpcionesMultiplesModel
 
     private function catalogo(string $sql): array
     {
-        try { return $this->db->query($sql)->fetchAll(); } catch (\Throwable) { return []; }
+        try {
+            return $this->db->query($sql)->fetchAll();
+        } catch (\Throwable) {
+            return [];
+        }
     }
 
     private function bindParams(PDOStatement $stmt, array $params): void
     {
         foreach ($params as $key => $value) {
-            if (is_array($value)) { $stmt->bindValue($key, $value['value'], $value['type']); continue; }
+            if (is_array($value)) {
+                $stmt->bindValue($key, $value['value'], $value['type']);
+                continue;
+            }
+
             $stmt->bindValue($key, $value);
         }
     }
